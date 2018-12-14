@@ -309,7 +309,7 @@ aim3_chki.tx.conf$Hemorrhage<-gsub(
 aim3_chki.tx.conf$Hemorrhage<-ifelse(
   aim3_chki.tx.conf$Hemorrhage=="Hemorrhage","Hemorrhage",
   ifelse(aim3_chki.tx.conf$Hemorrhage=="NA","NA","Not Hemorrhage"))
-summary(freqlist(table(aim3_chki.tx.conf$ATF_IdAnemicDuringCurrPreg,
+<-summary(freqlist(table(aim3_chki.tx.conf$ATF_IdAnemicDuringCurrPreg,
                        aim3_chki.tx.conf$Hemorrhage,
                        useNA = "ifany"),
                  labelTranslations = c("Anemic Curr. Preg.",
@@ -396,23 +396,29 @@ summary(freqlist(table(aim3_chki.tx.conf$gest.wks.tri,
                  labelTranslations = c("Gest. Age. Group",
                                        "Med. Rationale Tx.")))
 #"Other" specified for Blood Tx. Rationale
-summary(freqlist(table(aim3_chki.tx.conf$ATF_MedicalRationaleForTx,
+other.tx.rat<-as.data.frame(freqlist(table(aim3_chki.tx.conf$ATF_MedicalRationaleForTx,
                        aim3_chki.tx.conf$MedicalRationaleOtherSpecify),
                  labelTranslations = c("Med. Rat. w/ 'Other'",
                                        "'Other' Specify")))
 #"Other" Specified for Table 2
-summary(freqlist(table(aim3_chki.tx.conf$ATF_HemorrhageCause,
+other.hem.caus<-as.data.frame(freqlist(table(aim3_chki.tx.conf$ATF_HemorrhageCause,
                        aim3_chki.tx.conf$HemorrhageCauseOtherSpecify),
                  labelTranslations = c(
                    "Hemorrhage Cause w/ 'Other'","Other Specify")))
 #"Other" Specified for Table 3
-summary(freqlist(table(aim3_chki.tx.conf$ATF_CompsThisPregType,
+other.comp.preg<-as.data.frame(freqlist(table(aim3_chki.tx.conf$ATF_CompsThisPregType,
                        aim3_chki.tx.conf$ComplicationsThisPregnancySP),
                  labelTranslations = c(
                    "Preg. Complications w/ 'Other'",
                    "'Other' Specified")))
-summary(freqlist(table(aim3_chki.tx.conf$ATF_CompsThisAdmType,
+other.comp.adm<-as.data.frame(freqlist(table(aim3_chki.tx.conf$ATF_CompsThisAdmType,
                        aim3_chki.tx.conf$ComplicationsThisAdmissionSP),
                  labelTranslations = c(
                    "Adm. Complications w/ 'Other'",
                    "'Other' Specified")))
+
+#write to csv
+write.csv(other.tx.rat,"Other Blood Tx Rationale.csv")
+write.csv(other.hem.caus,"Other Hemorrhage Causes.csv")
+write.csv(other.comp.preg,"Other Complications this Pregnancy.csv")
+write.csv(other.comp.adm,"Other Complications this Admission.csv")

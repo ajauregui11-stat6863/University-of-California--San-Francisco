@@ -2,7 +2,7 @@ library(readr)
 library(ggplot2)
 library(arsenal)
 library(tableone)
-aim3.dat.clean <- read_csv("BSRI/TIP Stuff/aim3_Dat_imp (column shift update).csv", 
+aim3.dat.clean <- read_csv("BSRI/TIP Stuff/aim3_Dat_clean_correct.csv", 
                          col_types = cols(ATF_AdmDate = col_date(format = "%m/%d/%Y"), 
                                           ATF_BookingDate = col_date(format = "%m/%d/%Y"), 
                                           ATF_ComponentsTXDate1 = col_date(format = "%m/%d/%Y"), 
@@ -61,6 +61,10 @@ colnames(aim3_chris.king)[
 aim3_chris.king$Stay_Length<-as.numeric(
   aim3_chris.king$ATF_DschgDate)-as.numeric(
     aim3_chris.king$ATF_AdmDate)
+
+#remove the observations that don't have recorded tx's
+aim3_chki.tx.conf<-subset(x=aim3_chris.king,
+                          subset=!(rowSums(aim3_chris.king[c(112:114)])==0))
 
 #check atf component date columns for typos
 lapply(aim3_chris.king[c(70,73,76,79,82,85,88)],
@@ -211,8 +215,6 @@ summary(freqlist(table(aim3_chris.king$redTotal,
                  labelTranslations = c("RBC Total",
                                        "Platelet Total",
                                        "Plasma Total")))
-#remove the observations that don't have recorded tx's
-aim3_chki.tx.conf<-subset(x=aim3_chris.king,
-                          subset=!(rowSums(aim3_chris.king[c(112:114)])==0))
+#the removed observations
 aim3_0<-subset(x=aim3_chris.king,
                        subset=rowSums(aim3_chris.king[c(112:114)])==0)

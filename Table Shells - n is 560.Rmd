@@ -1,7 +1,7 @@
 ---
-title: "Table Shells Cleaned - Chris and Edward"
+title: "Table Shells - n is 560"
 author: "Adam Jauregui"
-date: "December 3, 2018"
+date: "December 14, 2018"
 output: word_document
 ---
 
@@ -10,7 +10,7 @@ library(readr)
 library(ggplot2)
 library(arsenal)
 library(tableone)
-aim3.dat.clean <- read_csv("C:/Users/Adam/Documents/BSRI/TIP Stuff/aim3_Dat_imp.csv", 
+aim3.dat.clean <- read_csv("C:/Users/Adam/Documents/BSRI/TIP Stuff/aim3_Dat_clean_correct.csv", 
                          col_types = cols(ATF_AdmDate = col_date(format = "%m/%d/%Y"), 
                                           ATF_BookingDate = col_date(format = "%m/%d/%Y"), 
                                           ATF_ComponentsTXDate1 = col_date(format = "%m/%d/%Y"), 
@@ -50,6 +50,11 @@ aim3_chris.king<-aim3_chris.king[-c(112)]
 colnames(aim3_chris.king)[
   colnames(aim3_chris.king)=="ATF_Transfused.x"
 ]<-"ATF_Transfused"
+
+#recalculate stay length column
+aim3_chris.king$Stay_Length<-as.numeric(
+  aim3_chris.king$ATF_DschgDate)-as.numeric(
+    aim3_chris.king$ATF_AdmDate)
 
 #subset out those who are not transfused
 aim3_chki.tx.conf<-subset(x=aim3_chris.king,
@@ -407,42 +412,4 @@ summary(freqlist(table(anemic.and.bleeding.nona$anemic.and.bleeding,
                        useNA = "ifany"),
                  labelTranslations = c("Anemic*Bleeding",
                                        "Med. Rationale Tx.")))
-```
-
-##Crosstabs: Q6.5 (blood tx. rationale) and gest.wks.tri
-```{r crosstabs5,results="apsis"}
-summary(freqlist(table(aim3_chki.tx.conf$gest.wks.tri,
-                       aim3_chki.tx.conf$ATF_MedicalRationaleForTx),
-                 labelTranslations = c("Gest. Age. Group",
-                                       "Med. Rationale Tx.")))
-```
-
-##"Other" specified for Blood Tx. Rationale
-```{r crosstabs6,results="apsis"}
-summary(freqlist(table(aim3_chki.tx.conf$ATF_MedicalRationaleForTx,
-                       aim3_chki.tx.conf$MedicalRationaleOtherSpecify),
-                 labelTranslations = c("Med. Rat. w/ 'Other'",
-                                       "'Other' Specify")))
-```
-
-##"Other" Specified for Table 2
-```{r crosstabs7,results="apsis"}
-summary(freqlist(table(aim3_chki.tx.conf$ATF_HemorrhageCause,
-                       aim3_chki.tx.conf$HemorrhageCauseOtherSpecify),
-                 labelTranslations = c(
-                   "Hemorrhage Cause w/ 'Other'","Other Specify")))
-```
-
-##"Other" Specified for Table 3
-```{r crosstabs8,results="apsis"}
-summary(freqlist(table(aim3_chki.tx.conf$ATF_CompsThisPregType,
-                       aim3_chki.tx.conf$ComplicationsThisPregnancySP),
-                 labelTranslations = c(
-                   "Preg. Complications w/ 'Other'",
-                   "'Other' Specified")))
-summary(freqlist(table(aim3_chki.tx.conf$ATF_CompsThisAdmType,
-                       aim3_chki.tx.conf$ComplicationsThisAdmissionSP),
-                 labelTranslations = c(
-                   "Adm. Complications w/ 'Other'",
-                   "'Other' Specified")))
 ```
