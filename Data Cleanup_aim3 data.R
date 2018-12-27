@@ -15,7 +15,7 @@ library(StatMeasures)
 library(car)
 library(rmarkdown)
 
-aim3Dat_all <- read_csv("C:/Users/Adam/Documents/BSRI/TIP Stuff/aim3Dat_all.csv"), 
+aim3Dat_all <- read_csv("C:/Users/Adam/Documents/BSRI/TIP Stuff/aim3Dat_all.csv", 
                         col_types = 
                           cols(ATF_PMTCTStartDate = 
                                  col_date(format = "%d/%m/%Y"),
@@ -49,7 +49,7 @@ aim3Dat_all <- read_csv("C:/Users/Adam/Documents/BSRI/TIP Stuff/aim3Dat_all.csv"
                                  col_date(format = "%d/%m/%Y"),
                             ATF_AdmDate = 
                                  col_date(format = "%d/%m/%Y"),
-                            ATF_DschDate =
+                            ATF_DschgDate =
                                  col_date(format = "%d/%m/%Y"),
                             ATF_ComponentTxDate1 = 
                                  col_date(format = "%d/%m/%Y"),

@@ -2,17 +2,21 @@ library(readr)
 library(ggplot2)
 library(arsenal)
 library(tableone)
-aim3.dat.clean <- read_csv("BSRI/TIP Stuff/aim3_Dat_clean_correct.csv", 
-                         col_types = cols(ATF_AdmDate = col_date(format = "%m/%d/%Y"), 
+library(lubridate)
+library(StatMeasures)
+library(dplyr)
+library(tidyr)
+aim3.dat.clean <- read_csv("BSRI/TIP Stuff/aim3_Dat_clean_correct (version 1).csv", 
+                         col_types = cols(ATF_AdmDate = col_date(format = "%d/%m/%Y"), 
                                           ATF_BookingDate = col_date(format = "%m/%d/%Y"), 
-                                          ATF_ComponentsTXDate1 = col_date(format = "%m/%d/%Y"), 
-                                          ATF_ComponentsTXDate2 = col_date(format = "%m/%d/%Y"), 
-                                          ATF_ComponentsTXDate3 = col_date(format = "%m/%d/%Y"), 
-                                          ATF_ComponentsTXDate4 = col_date(format = "%m/%d/%Y"), 
-                                          ATF_ComponentsTXDate5 = col_date(format = "%m/%d/%Y"), 
-                                          ATF_ComponentsTXDate6 = col_date(format = "%m/%d/%Y"), 
-                                          ATF_ComponentsTXDate7 = col_date(format = "%m/%d/%Y"), 
-                                          ATF_DschgDate = col_date(format = "%m/%d/%Y"), 
+                                          ATF_ComponentsTXDate1 = col_date(format = "%d/%m/%Y"), 
+                                          ATF_ComponentsTXDate2 = col_date(format = "%d/%m/%Y"), 
+                                          ATF_ComponentsTXDate3 = col_date(format = "%d/%m/%Y"), 
+                                          ATF_ComponentsTXDate4 = col_date(format = "%d/%m/%Y"), 
+                                          ATF_ComponentsTXDate5 = col_date(format = "%d/%m/%Y"), 
+                                          ATF_ComponentsTXDate6 = col_date(format = "%d/%m/%Y"), 
+                                          ATF_ComponentsTXDate7 = col_date(format = "%d/%m/%Y"), 
+                                          ATF_DschgDate = col_date(format = "%d/%m/%Y"), 
                                           ATF_EstDateDelivery = col_date(format = "%m/%d/%Y"), 
                                           ATF_HIVStatusBookingDate = col_date(format = "%m/%d/%Y"), 
                                           ATF_HIVStatusDelvAdmitDate = col_date(format = "%m/%d/%Y"), 
@@ -35,7 +39,7 @@ gest.wks.tri<-cut(aim3_chris.king$ATF_GestAgeWks,
               label=c("<14","14-25",">25"),
               right=FALSE)
 aim3_chris.king$gest.wks.tri<-gest.wks.tri
-aim3_chris.king<-aim3_chris.king[c(1:16,115,17:114)]
+aim3_chris.king<-aim3_chris.king[c(1:16,116,17:115)]
 aim3_chris.king<-aim3_chris.king[-c(112)]
 
 #rename column
@@ -43,6 +47,53 @@ colnames(aim3_chris.king)[
   colnames(aim3_chris.king)=="ATF_Transfused.x"
 ]<-"ATF_Transfused"
 
+#recalculate stay length column
+aim3_chris.king$Stay_Length<-as.numeric(
+  aim3_chris.king$ATF_DschgDate)-as.numeric(
+    aim3_chris.king$ATF_AdmDate)
+
+#remove the observations that don't have recorded tx's
+aim3_chki.tx.conf<-subset(x=aim3_chris.king,
+                          subset=!(rowSums(aim3_chris.king[c(113:115)])==0))
+
+#Joans' CSV
+aim3Dat_18Dec18 <- read_csv("BSRI/TIP Stuff/aim3Dat_18Dec18.csv", 
+                            col_types = cols(AdmDate = col_date(format = "%d/%m/%Y"), 
+                                             DschgDate = col_date(format = "%d/%m/%Y"), 
+                                             Est_Delivery = col_date(format = "%d/%m/%Y"), 
+                                             TXDate1 = col_date(format = "%d/%m/%Y"), 
+                                             TXDate2 = col_date(format = "%d/%m/%Y"), 
+                                             TXDate3 = col_date(format = "%d/%m/%Y"), 
+                                             TXDate4 = col_date(format = "%d/%m/%Y"), 
+                                             TXDate5 = col_date(format = "%d/%m/%Y"), 
+                                             TXDate6 = col_date(format = "%d/%m/%Y"), 
+                                             TXDate7 = col_date(format = "%d/%m/%Y")))
+View(aim3Dat_18Dec18)
+
+#Joan's CSV
+aim3_Joan<-inner_join(aim3_chki.tx.conf,
+                     aim3Dat_18Dec18,
+                     by="studyId")
+aim3_Joan<-aim3_Joan[c(1:14,116,117,15:115,118:157)]
+write.csv(aim3_Joan,"aim3_Dec18_nis560.csv")
+aim3_Joan$ATF_AdmDate==aim3_Joan$AdmDate
+which(!(aim3_Joan$ATF_AdmDate==aim3_Joan$AdmDate))
+aim3_Joan_Adam<-subset(aim3_Joan,
+                       !(aim3_Joan$ATF_AdmDate==aim3_Joan$AdmDate))
+write.csv(aim3_Joan_Adam,"aim3_ADM_DSCH.csv")
+
+#match mine to the original to document changes
+aim3_joined<-inner_join(aim3_chki.tx.conf,
+                        aim3Dat_all,
+                        by="studyId")
+which(!(aim3_joined$ATF_AdmDate.x==aim3_joined$ATF_AdmDate.y))
+which(!(aim3_joined$ATF_DschgDate.x==aim3_joined$ATF_DschgDate.y))
+aim3_joined.differ<-subset(aim3_joined,
+                           (!(aim3_joined$ATF_AdmDate.x==
+                                aim3_joined$ATF_AdmDate.y) | 
+                              !(aim3_joined$ATF_DschgDate.x==
+                                  aim3_joined$ATF_DschgDate.y)))
+write.csv(aim3_joined,"aim3_joined(2).csv")
 #if an observation has an entry in the last 3 columns 
 #(redTotal, pltTotal, and ffpTotal) that is not zero, then we can 
 #change that observation to a "01 Yes"
@@ -57,18 +108,14 @@ colnames(aim3_chris.king)[
 #aim3_chris.king<-subset(aim3_chris.king,
  #                       !(is.na(ATF_Transfused)))
 
-#recalculate stay length column
-aim3_chris.king$Stay_Length<-as.numeric(
-  aim3_chris.king$ATF_DschgDate)-as.numeric(
-    aim3_chris.king$ATF_AdmDate)
-
-#remove the observations that don't have recorded tx's
-aim3_chki.tx.conf<-subset(x=aim3_chris.king,
-                          subset=!(rowSums(aim3_chris.king[c(112:114)])==0))
-
 #check atf component date columns for typos
-lapply(aim3_chris.king[c(70,73,76,79,82,85,88)],
-       function(x) outliers(as.numeric(x)))
+lapply(aim3_chki.tx.conf[c(12,13,14,70,73,76,79,82,85,88)],
+       unique)
+
+#order data frame
+attach(aim3_chki.tx.conf)
+aim3.sort2<-aim3_chki.tx.conf[order(Stay_Length),]
+detach(aim3_chki.tx.conf)
 
 #investigation of RBC, platelet, and plasma counts
 ft.rowsums <- regulartable(data = head(aim3_chris.king[
@@ -215,6 +262,19 @@ summary(freqlist(table(aim3_chris.king$redTotal,
                  labelTranslations = c("RBC Total",
                                        "Platelet Total",
                                        "Plasma Total")))
+
+#further investigations#
+
+#check if transfusion dates are between admission and discharge date
+adm.dsch.int<-interval(aim3_chki.tx.conf$ATF_AdmDate,
+                       aim3_chki.tx.conf$ATF_DschgDate)
+adm.tx.dsch.f<-aim3_chki.tx.conf$ATF_ComponentsTXDate1 %within% adm.dsch.int
+aim3_chki.tx.conf$adm.tx.dsch.f<-adm.tx.dsch.f
+aim3_adm.tx.dsch.false<-subset(aim3_chki.tx.conf,
+                               adm.tx.dsch.f=="FALSE" | 
+                                 is.na(adm.tx.dsch.f))
+write.csv(aim3_adm.tx.dsch.false,"aim3_transfusion not within(2).csv")
+
 #the removed observations
 aim3_0<-subset(x=aim3_chris.king,
                        subset=rowSums(aim3_chris.king[c(112:114)])==0)
