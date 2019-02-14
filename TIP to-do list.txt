@@ -1,9 +1,0 @@
-#pre-form to-do list
-abstrat date and consent date equal?
-subjectID and studyId equal?
-studyID duplicates?
-Location descriptive statistics
-
-#sections to work on
-section 1, section 3 (current pregnancy), 
-section 4 (question 1 - 3), section 5
