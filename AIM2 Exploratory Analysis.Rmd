@@ -1,3 +1,11 @@
+---
+title: "AIM2 Exploration"
+author: "Adam Jauregui"
+date: "March 12, 2019"
+output: word_document
+---
+
+```{r setup, include=FALSE}
 library(readr)
 library(lubridate)
 library(plyr)
@@ -13,7 +21,7 @@ library(ggplot2)
 library(arsenal)
 library(scales)
 library(Hmisc)
-MergedAIM2_QX <- read_csv("BSRI/TIP Stuff/MergedAIM2_QX/MergedAIM2_QX_csv.csv")
+MergedAIM2_QX <- read_csv("C:/Users/Adam/Documents/BSRI/TIP Stuff/MergedAIM2_QX/MergedAIM2_QX_csv.csv")
 View(MergedAIM2_QX)
 
 #get dimensions and view structure
@@ -685,21 +693,23 @@ aim2.lab.aaf.spec[327,5]<-as.Date("2014-11-11",format="%Y-%m-%d")
 aim2.lab.aaf.spec[367,5]<-as.Date("2015-01-30",format="%Y-%m-%d")
 aim2.lab.aaf.spec[436,5]<-as.Date("2015-04-10",format="%Y-%m-%d")
 aim2.lab.aaf.spec[450,5]<-as.Date("2015-05-07",format="%Y-%m-%d")
-#print out the suspect date values
-  # Create flextable object
-ft.date <- regulartable(data = date.investigation[c(1:5,7:8)])
-ft.date <- regulartable(data = date.investigation[c(1:5,7:8)]) %>%
-  set_formatter(ft.date,
-                studyId=function(x) sprintf("%.0f",x)) %>%
-  theme_zebra %>% 
-  autofit
-ft.date # See flextable in RStudio viewer
-tmp.0 <- tempfile(fileext = ".docx") # Create a temp file
-read_docx() %>%                        # Create a docx file
-  body_add_flextable(ft.date) %>% 
-  print(target = tmp.0)
-browseURL(tmp.0) # open word document
+```
 
+##Overview of this Document
+First, I will present a table corresponding to the probable typos I found and corrected within variable "Date of Referring Clinic," which was necessary to complete this week's action items.
+Second, I will present paired scatterplots of the Hemoglobin levels for each patient. The first graph is an overall picture, then after that I have the paired observations plotted month by month.
+Third, I will present relative frequency histograms of the hemoglobin levels at the first lab visit and at referral.
+Fourth, I will present two frequency histograms of the hemoglobin levels before referral by method used: FBC and Point of Care. (There was an "other" method that contained only one observation, and 23 observations that did not have a method marked. These were not graphed.)
+Fifth, I will present counts of the observations when applied to the two different inclusion criteria. One dependent on the Hemoglobin level at the first visit of the lab, and the other dependent on the Hemoglobin level at referral. I also show quality-check cross tabulations of these inclusion criteria.
+Sixth, I will present histograms of the hemoglobin levels when applied to the inclusion criteria.
+Seventh, I will present graphs of the difference in days between the variables "First Hemoglobin Visit" and "Date of Referring Clinic." The first graph is an x-y scatterplot, where the x-value is hemoglobin level and the y-value is the difference in days. The second graph is a frequency histogram of the difference in days.
+
+##Table of Date Typos
+
+I created this table by taking the difference of the date values, in days, between the variables "First Hemoglobin Date" (from the lab data) and the aforementioned variable "Date of Last Referring Clinic." If the difference was negative (i.e., the lab visit was earlier than the referral visit) or greater than 90 days, then those observations are in this table.
+
+##Plots of Hemoglobin Paired
+```{r plot1, warning=FALSE,message=FALSE,echo=FALSE}
 #plot paired hemoglobin vs. date
   #gather the hemoglobin values by key
 aim2.lab.aaf.spec.paired<-aim2.lab.aaf.spec %>% 
@@ -836,25 +846,12 @@ ggplot(aim2.lab.aaf.spec.paired,aes(Int.Date,Hemoglobin)) +
                date_minor_breaks = "1 day") + 
   scale_y_continuous(breaks=seq(0,14,2)) +
   ggtitle("Hemoglobin Paired (June & July 2015)")
-#plot hemoglobin of first clinic visit versus first hemoglobin date
-#ggplot(aim2.lab.aaf.spec,
- #      aes(First_Hemoglobin_Date,Hemoglobin_of_First_Clinic_Visit)) + 
-  #geom_point()
-#plot hemoglobin before referral vs. date of last referring clinic
-#ggplot(aim2.lab.aaf.spec,
- #          aes(Date_of_Last_Referring_Clinic,Hemoglobin_Before_Referral)) +
-  #geom_point()
-#single histogram function
-#plot_histogram <- function(df, feature) {
- # plt <- ggplot(df, aes(x=eval(parse(text=feature)))) +
-  #  geom_histogram(aes(y = ..density..), alpha=0.7, fill="#33AADE", 
-  #                 color="black") +
-  #  geom_density(alpha=0.3, fill="red") +
-  #  geom_vline(aes(xintercept=mean(eval(parse(text=feature)))), 
-  #             color="black", linetype="dashed", size=1) +
-  #  labs(x=feature, y = "Density")
-  #print(plt)
-#}
+
+```
+
+##Histograms of Hemoglobin
+
+```{r plot2, warning=FALSE,message=FALSE,echo=FALSE}
 #plot hemoglobin of first clinic visit
   #calculate binwidth
 n<-sum(!is.na(aim2.lab.aaf.spec$Hemoglobin_of_First_Clinic_Visit))
@@ -871,6 +868,7 @@ ggplot(aim2.lab.aaf.spec,aes(Hemoglobin_of_First_Clinic_Visit)) +
   geom_density(alpha=.3,fill="green4") +
   labs(x="Hemoglobin Level",y="Density") + 
   ggtitle("Density of Hemoglobin at First Clinic Visit")
+
 #plot hemoglobin before referral
   #calculate binwidth
 n<-sum(!is.na(aim2.lab.aaf.spec$Hemoglobin_Before_Referral))
@@ -887,6 +885,10 @@ ggplot(aim2.lab.aaf.spec,aes(Hemoglobin_Before_Referral)) +
   geom_density(alpha=.3,fill="red4") +
   labs(x="Hemoglobin Level",y="Density") + 
   ggtitle("Density of Hemoglobin Before Referral")
+```
+
+#Histograms of Hemoglobin Before Referral by Method
+```{r plot5,warning=FALSE,message=FALSE,echo=FALSE}
 #plot multiple graphs by method used for hemoglobin before referral
   #method: FBC
 fbc.hgb.ref<-subset(aim2.lab.aaf.spec,
@@ -906,6 +908,11 @@ ggplot(poc.hgb.ref,aes(Hemoglobin_Before_Referral)) +
   ggtitle("Hemoglobin Before Referral by Point of Care Method") + 
   scale_x_continuous(breaks=seq(4,14,1),
                      minor_breaks = seq(4,14,.1))
+```
+
+##Inclusion Criteria
+
+```{r chunk5, warning=FALSE,message=FALSE,echo=FALSE}
 #gather the hemoglobin values by inclusion criteria
   #inclusion criteria by first lab visit
 inclusion.lab<-NA
@@ -968,7 +975,11 @@ summary(freqlist(table(inclusion.lab,
 #                 labelTranslations = c("Hemoglobin Level",
 #                                       "Included by Hgb @ Ref.?",
 #                                       "Anemia Definition")))
+```
 
+##Histograms of Hemoglobin Levels (Inclusion Criteria)
+
+```{r plot6,warning=FALSE,message=FALSE,echo=FALSE}
 #remake plots with inclusion criteria
 aim2.lab.aaf.spec$inclusion.lab<-inclusion.lab
 #aim2.lab.aaf.spec$inclusion.ref<-inclusion.ref
@@ -1008,7 +1019,11 @@ ggplot(incl.lab.aim2.lab.aaf,aes(Hemoglobin_Before_Referral)) +
   geom_density(alpha=.3,fill="firebrick4") +
   labs(x="Hemoglobin Level",y="Density") + 
   ggtitle("Density of Hemoglobin Before Referral (Inclusion)")
+```
 
+##Date Difference Histograms
+
+```{r plot10,warning=FALSE,message=FALSE,echo=FALSE}
 #plot difference in date interval by hemoglobin at referral
 diff.date<-as.numeric(aim2.lab.aaf.spec$First_Hemoglobin_Date - 
                         aim2.lab.aaf.spec$Date_of_Last_Referring_Clinic)
@@ -1036,101 +1051,10 @@ ggplot(aim2.lab.aaf.spec, aes(diff.date)) +
   scale_x_continuous(minor_breaks = seq(0,130,6)) +
   stat_bin(binwidth=6,aes(y=..count..,label=..count..),
            geom="text",vjust=-.2)
+```
 
-
-
-#investigate what the visit dates should be
-#aim2.dates<-MergedAIM2_QX[,grep(".*date.*",
- #                               colnames(MergedAIM2_QX),ignore.case = TRUE)]
-#aim2.dates$studyid<-MergedAIM2_QX$`Patient Number`
-#aim2.dates<-aim2.dates%>%select(studyid,everything())
-#write.csv(aim2.dates,"AIM2 All Date Columns.csv")
-#glimpse(aim2.dates)
-#investigation
-#attach(aim2.dates)
-#unique(TodayDate)
-
-#investigate possible typos
-#attach(aim2.aaf.ultimate)
-#find unique values of variables with typos
-#unique(AAF_Gravidity) #62,92
-#unique(AAF_Parity) #91, 61
-#unique(AAF_NumVisitsRefAnteClinic) #62,61,64,81,98
-#unique(AAF_NumCSect) #39,36,29,28,20,25,40,31,33,19,24
-#unique(AAF_NumPrevStillbirths) #60
-#unique(AAF_NumPrevMiscarriages) #60
-#find row indices that contain the possible typo
-#which(AAF_Gravidity=="62" | AAF_Gravidity=="92")
-#which(AAF_Parity=="61" | AAF_Parity=="91")
-#which(AAF_NumVisitsRefAnteClinic=="62" | 
-#        AAF_NumVisitsRefAnteClinic=="61" | 
-#        AAF_NumVisitsRefAnteClinic=="64" | 
-#        AAF_NumVisitsRefAnteClinic=="81" | 
-#        AAF_NumVisitsRefAnteClinic=="98")
-#which(AAF_NumCSect=="39" | AAF_NumCSect=="36" | 
-#        AAF_NumCSect=="29" | AAF_NumCSect=="28" | 
-#        AAF_NumCSect=="20" | AAF_NumCSect=="25" | 
-#        AAF_NumCSect=="40" | AAF_NumCSect=="31" | 
-#        AAF_NumCSect=="33" | AAF_NumCSect=="19" | 
-#        AAF_NumCSect=="24")
-#which(AAF_NumPrevStillbirths=="60")
-#which(AAF_NumPrevMiscarriages=="60")
-#find column indices of variables with possible typos
-#grep(".*Gravidity",colnames(aim2.aaf.ultimate))
-#grep(".*Parity",colnames(aim2.aaf.ultimate))
-#grep(".*NumVisitsRefAnteClinic",colnames(aim2.aaf.ultimate))
-#grep(".*NumCSect",colnames(aim2.aaf.ultimate))
-#grep(".*NumPrevStillbirths",colnames(aim2.aaf.ultimate))
-#grep(".*NumPrevMiscarriages",colnames(aim2.aaf.ultimate))
-#see data frame of typos
-#aim2.aaf.typos<-aim2.aaf.ultimate[c(31,32,47,49,61,113,114,116,123,181,
- #                   223,226,227,228,238,241,261,269,
-#                    309,313,318,339,357,366,386,
-#                    427,473,482),
-#                  c(17:23,90:92,108:111)]
-#write.csv(aim2.aaf.typos,"AIM2_AAF_typos data frame.csv")
-
-#find HIV+ with some variables
-#attach(aim2.aaf.ultimate)
-#summary(freqlist(table(BookingHIVStatus,
-#                       DelveryAdmissionHIVStatus,
-#                       useNA = "ifany"),
-#                 labelTranslations=c("Booking HIV Status",
-#                                     "Delivery Admission HIV Status")))
-#summary(freqlist(table(BookingHIVStatus,
-#                       AAF_OnARTPriorThisPreg,
-#                       useNA = "ifany"),
-#                 labelTranslations=c("Booking HIV Status",
-#                                     "ART Use Prior Preg.?")))
-#summary(freqlist(table(BookingHIVStatus,
-#                       AAF_ARTPMTCTThisPreg,
-#                       useNA = "ifany"),
-#                 labelTranslations=c("Booking HIV Status",
-#                                     "ART PMTCT This Preg.?")))
-#summary(freqlist(table(BookingHIVStatus,
-#                       AAF_HIVPosPrecedePreg,
-#                       useNA = "ifany"),
-#                 labelTranslations=c("Booking HIV Status",
-#                                     "HIV Pos. Preceding Preg.?")))
-#summary(freqlist(table(BookingHIVStatus,
-#                       AAF_PMTCTUsedPrecedePreg,
-#                       useNA = "ifany"),
-#                 labelTranslations=c("Booking HIV Status",
-#                                     "PMTCT Use Preceding Preg.?")))
-#summary(freqlist(table(BookingHIVStatus,
-#                       AAF_ARTUsedPrecedePreg,
-#                       useNA = "ifany"),
-#                 labelTranslations=c("Booking HIV Status",
-#                                     "ART Used Preceding Preg.?")))
-#detach(aim2.aaf.ultimate)
-
-#summaries
-#dfSummary(aim2.pq.ultimate,style = 'grid', plain.ascii = FALSE)
-#dfSummary(aim2.aaf.ultimate,
-#                            style='grid',plain.scii=FALSE)
-#dfSummary(aim2.pv.ultimate,
-#                           style='grid',plain.ascii=FALSE)
-
+##LOESS Plot
+```{r plot12,echo=FALSE}
 #make scatterplots, stratified by HIV status, of Hgb at visit 1 by 
   #gestational age, with a superimposed loess curve
 #remove missing HIV values
@@ -1152,7 +1076,10 @@ ggplot(aim2.lab.aaf.spec,
   scale_y_continuous(breaks=seq(5,15,2)) + 
   labs(x="Weeks",y="Hemoglobin Level g/dl") + 
   ggtitle("Hemoglobin Level at First Visit as a Function of Gestation Age")
+```
 
+##Tables
+```{r chunk9,echo=FALSE}
 #make a table of Hemoglobin Level, HIV Status, and Gestation Age in months
 #by first clinic visit
   #create variable gestation age months
@@ -1195,3 +1122,4 @@ hiv.age.hgb.tab.all<-MergedAIM2_short %>%
             Q1=quantile(Haemoglobin,probs=.25),
             Q3=quantile(Haemoglobin,probs=.75))
 hiv.age.hgb.tab.all %>% print(n = Inf)
+```

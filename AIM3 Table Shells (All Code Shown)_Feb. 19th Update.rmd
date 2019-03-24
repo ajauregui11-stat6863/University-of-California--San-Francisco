@@ -1,0 +1,822 @@
+---
+title: "AIM3 Table Shells (All Code Shown)"
+author: "Adam Jauregui"
+date: "February 19, 2019"
+output: word_document
+---
+
+```{r setup,include=FALSE,warning=FALSE,message=FALSE}
+library(readr)
+library(ggplot2)
+library(arsenal)
+library(tableone)
+library(lubridate)
+library(StatMeasures)
+library(dplyr)
+library(tidyr)
+library(stringr)
+library(officer)
+library(scales)
+aim3.dat.clean <- read_csv("C:/Users/Adam/Documents/BSRI/TIP Stuff/aim3_Dat_clean_correct (version 1).csv", 
+                         col_types = cols(ATF_AdmDate = col_date(format = "%d/%m/%Y"), 
+                                          ATF_BookingDate = col_date(format = "%m/%d/%Y"), 
+                                          ATF_ComponentsTXDate1 = col_date(format = "%d/%m/%Y"), 
+                                          ATF_ComponentsTXDate2 = col_date(format = "%d/%m/%Y"), 
+                                          ATF_ComponentsTXDate3 = col_date(format = "%d/%m/%Y"), 
+                                          ATF_ComponentsTXDate4 = col_date(format = "%d/%m/%Y"), 
+                                          ATF_ComponentsTXDate5 = col_date(format = "%d/%m/%Y"), 
+                                          ATF_ComponentsTXDate6 = col_date(format = "%d/%m/%Y"), 
+                                          ATF_ComponentsTXDate7 = col_date(format = "%d/%m/%Y"), 
+                                          ATF_DschgDate = col_date(format = "%d/%m/%Y"), 
+                                          ATF_EstDateDelivery = col_date(format = "%m/%d/%Y"), 
+                                          ATF_HIVStatusBookingDate = col_date(format = "%m/%d/%Y"), 
+                                          ATF_HIVStatusDelvAdmitDate = col_date(format = "%m/%d/%Y"), 
+                                          ATF_HIVStatusOthTestDate = col_date(format = "%m/%d/%Y"), 
+                                          ATF_PMTCTStartDate = col_date(format = "%m/%d/%Y"), 
+                                          ATF_TodayDate = col_date(format = "%m/%d/%Y"), 
+                                          ChartAbstrationDate = col_date(format = "%m/%d/%Y"), 
+                                          ConsentDate = col_date(format = "%m/%d/%Y"), 
+                                          CreatedDate = col_date(format = "%m/%d/%Y")))
+View(aim3.dat.clean)
+
+#subset out Groote/Schurr hospitals
+aim3_chris.king<-subset(aim3.dat.clean,
+                              LOCATION=="Chris Hani" | 
+                                LOCATION=="King Edward")
+
+#add gestation weeks
+gest.wks.tri<-cut(aim3_chris.king$ATF_GestAgeWks,
+              breaks=c(-Inf,13,25,Inf),
+              label=c("<14","14-25",">25"),
+              right=FALSE)
+aim3_chris.king$gest.wks.tri<-gest.wks.tri
+aim3_chris.king<-aim3_chris.king[c(1:16,116,17:115)]
+aim3_chris.king<-aim3_chris.king[-c(112)]
+
+#rename column
+colnames(aim3_chris.king)[
+  colnames(aim3_chris.king)=="ATF_Transfused.x"
+]<-"ATF_Transfused"
+
+#recalculate stay length column
+aim3_chris.king$Stay_Length<-as.numeric(
+  aim3_chris.king$ATF_DschgDate)-as.numeric(
+    aim3_chris.king$ATF_AdmDate)
+
+#remove the observations that don't have recorded tx's
+aim3_chki.tx.conf<-subset(x=aim3_chris.king,
+                          subset=!(rowSums(aim3_chris.king[c(113:115)])==0))
+
+#recode Q6.5 "Blood Tx Rationale"
+MedicalRationale<-
+  paste(aim3_chki.tx.conf$ATF_MedicalRationaleForTx,
+        aim3_chki.tx.conf$MedicalRationaleOtherSpecify)
+MedicalRationale<-str_trim(MedicalRationale,side=c("both"))
+MedicalRationale<-gsub(" NA$","",MedicalRationale)
+table(MedicalRationale) #get counts beforehand
+MedicalRationale<-gsub("^_Anaesthetic.*","ANESTH",
+                       MedicalRationale)
+MedicalRationale<-gsub(".*Anaesthetic.*","ANESTH",
+                       MedicalRationale)
+MedicalRationale<-gsub(".*DAYS$","BOTH",
+                       MedicalRationale)
+MedicalRationale<-gsub(".*Other ICA$","HEMOR",
+                       MedicalRationale)
+MedicalRationale<-gsub("^_Chronic.*","ANEM",
+                       MedicalRationale)
+MedicalRationale<-gsub(".*Su.*","SURG",ignore.case = TRUE,
+                       MedicalRationale)
+MedicalRationale<-gsub("^_Other AN.*","ANEM",
+                       MedicalRationale)
+MedicalRationale<-gsub(".*Other AN.*","BOTH",
+                       MedicalRationale)
+MedicalRationale<-gsub(".*PALE$","HEMOR",
+                       MedicalRationale)
+MedicalRationale<-gsub(".*AND.*","BOTH",
+                       MedicalRationale)
+MedicalRationale<-gsub(".*ACUTE.*","ANEM",
+                       MedicalRationale)
+MedicalRationale<-gsub(".*SALPINGECTOMY$","SURG",
+                       MedicalRationale)
+MedicalRationale<-gsub(".*ECTOPIC.*","HEMOR",
+                       MedicalRationale)
+MedicalRationale<-gsub(".*HYPOCHYLAEMIA$",
+                       "HEMOR",
+                       MedicalRationale)
+MedicalRationale<-gsub(".*MISCARRIAGE$",
+                       "HEMOR",
+                       MedicalRationale)
+MedicalRationale<-gsub(".*IUD$","HEMOR",
+                       MedicalRationale)
+MedicalRationale<-gsub(".*PRODUCTS$","HEMOR",
+                       MedicalRationale)
+MedicalRationale<-gsub(".*ABORT$","HEMOR",
+                       MedicalRationale)
+MedicalRationale<-gsub(".*PRAGENIA$","HEMOR",
+                       MedicalRationale)
+MedicalRationale<-gsub(".*PLACENTA$","HEMOR",
+                       MedicalRationale)
+MedicalRationale<-gsub(".*MALARIA$","OTHER",
+                       MedicalRationale)
+MedicalRationale<-gsub(".*SEP.*","OTHER",
+                       MedicalRationale)
+MedicalRationale<-gsub(".*THROMOCYTOPAGENIA",
+                       "OTHER",MedicalRationale)
+MedicalRationale<-gsub(".*CURRETAGE","SURG",
+                       MedicalRationale)
+MedicalRationale<-gsub(".*UTERUS$","SURG",
+                       MedicalRationale)
+MedicalRationale<-gsub(".*TOP.*","SURG",
+                       MedicalRationale)
+MedicalRationale<-gsub("^_OBHemorrhage$","HEMOR",
+                       MedicalRationale)
+MedicalRationale<-gsub("_OBHemorrhage.*","BOTH",
+                       MedicalRationale)
+MedicalRationale<-gsub("_Other$","OTHER",
+                       MedicalRationale)
+MedicalRationale<-gsub(".*Unknown$","OTHER",
+                       MedicalRationale)
+MedicalRationale<-ifelse(
+  MedicalRationale=="HEMOR","HEMOR",
+  ifelse(MedicalRationale=="BOTH","BOTH",
+         ifelse(MedicalRationale=="SURG","SURG",
+                ifelse(MedicalRationale=="ANESTH","ANESTH",
+                       ifelse(MedicalRationale=="OTHER","OTHER",
+                              ifelse(MedicalRationale=="NA","NA","ANEM"
+                                     ))))))
+summary(freqlist(table(MedicalRationale,
+                       useNA = "ifany"),
+                 labelTranslations = "Medical Rationale"))
+MedicalRationale[MedicalRationale=="NA"]<-NA
+
+#recode Q5.2 Hemorrhage Cause
+HemorrhageCause<-
+  paste(aim3_chki.tx.conf$ATF_HemorrhageCause,
+        aim3_chki.tx.conf$HemorrhageCauseOtherSpecify)
+HemorrhageCause<-str_trim(HemorrhageCause,side=c("both"))
+HemorrhageCause<-gsub(" NA$","",HemorrhageCause)
+table(HemorrhageCause) #get counts beforehand
+HemorrhageCause<-gsub("_Unknown$","UNK",HemorrhageCause)
+HemorrhageCause<-gsub("^_Ante.*","HEMOR",HemorrhageCause)
+HemorrhageCause<-gsub("^_Bleed.*","SURG",HemorrhageCause)
+HemorrhageCause<-gsub("^_Blled.*","SURG",HemorrhageCause)
+HemorrhageCause<-gsub("^_Complete.*","C_ABORT",HemorrhageCause)
+HemorrhageCause<-gsub("^_Eltopic.*","ECTOPIC",HemorrhageCause)
+HemorrhageCause<-gsub("^_PlacentalAbr.*","ABRUPTION",HemorrhageCause)
+HemorrhageCause<-gsub("^_PlacentaPre.*","PREVIA",HemorrhageCause)
+HemorrhageCause<-gsub("^.*IUD$","DEATH",HemorrhageCause)
+HemorrhageCause<-gsub("^_Incomplete.*","I_ABORT",HemorrhageCause)
+HemorrhageCause<-gsub(".*INEVITABLE.*","I_ABORT",HemorrhageCause)
+HemorrhageCause<-gsub(".*PALE.*","I_ABORT",HemorrhageCause)
+HemorrhageCause<-gsub(".*ABORTION$","I_ABORT",HemorrhageCause)
+HemorrhageCause<-gsub("^_Threat.*","T_ABORT",HemorrhageCause)
+HemorrhageCause<-gsub(".*ANEA.*","ANEM",HemorrhageCause)
+HemorrhageCause<-gsub("_Other TOP","C_ABORT",HemorrhageCause)
+HemorrhageCause<-gsub(".*CERV.*","CERVIX",HemorrhageCause)
+HemorrhageCause<-gsub(".*APH.*","HEMOR",HemorrhageCause)
+HemorrhageCause<-gsub("^_Other$","UNK",HemorrhageCause)
+HemorrhageCause<-gsub(".*Other.*","DEATH",HemorrhageCause)
+summary(freqlist(table(HemorrhageCause,
+                       useNA = "ifany"),
+                 labelTranslations = "Hemorrhage Cause"))
+HemorrhageCause[HemorrhageCause=="NA"]<-NA
+
+#recode of Complications this Admission
+CompsThisAdm<-
+  paste(aim3_chki.tx.conf$ATF_CompsThisAdmType,
+        aim3_chki.tx.conf$ComplicationsThisAdmissionSP)
+CompsThisAdm<-str_trim(CompsThisAdm,side=c("both"))
+table(CompsThisAdm) #get counts beforehand
+CompsThisAdm<-gsub(" NA$","",CompsThisAdm)
+CompsThisAdm<-gsub(".*Renal.*","RENAL",ignore.case = TRUE,CompsThisAdm)
+CompsThisAdm<-gsub(".*Sep.*","SEPSIS",ignore.case=TRUE,CompsThisAdm)
+CompsThisAdm<-gsub(".*Shock.*","SHOCK",ignore.case=TRUE,CompsThisAdm)
+CompsThisAdm<-gsub("^_SymptAnaemia$","ANEM",CompsThisAdm)
+CompsThisAdm<-gsub(".*Resp.*","RESPIRATORY",CompsThisAdm)
+CompsThisAdm<-gsub(".*Hep.*","HEPATIC",CompsThisAdm)
+CompsThisAdm<-gsub(".*HYPO.*","RENAL",CompsThisAdm)
+CompsThisAdm<-gsub(".*DIARR.*","GASTRO",CompsThisAdm)
+CompsThisAdm<-gsub(".*ATRIAC.*","CARDIAC",CompsThisAdm)
+CompsThisAdm<-gsub("^_Other$","OTHER",CompsThisAdm)
+CompsThisAdm<-gsub(".*MALARIA.*","OTHER",CompsThisAdm)
+CompsThisAdm<-gsub(".*LOW.*","ANEM",CompsThisAdm)
+CompsThisAdm<-ifelse(
+  CompsThisAdm=="ANEM","ANEM",
+  ifelse(CompsThisAdm=="CARDIAC","CARDIAC",
+         ifelse(CompsThisAdm=="GASTRO","GASTRO",
+                ifelse(CompsThisAdm=="HEPATIC","HEPATIC",
+                       ifelse(CompsThisAdm=="RESPIRATORY","RESPIRATORY",
+                              ifelse(CompsThisAdm=="OTHER","OTHER",
+                                     ifelse(CompsThisAdm=="RENAL","RENAL",
+                                            ifelse(CompsThisAdm=="SEPSIS","SEPSIS",
+                                                   ifelse(CompsThisAdm=="SHOCK","SHOCK",
+                                                          ifelse(CompsThisAdm=="NA","NA","OBGYN"
+                                                                 )))))))))
+)
+summary(freqlist(table(CompsThisAdm,
+                       useNA = "ifany"),
+                 labelTranslations = "Complications this Admission"))
+CompsThisAdm[CompsThisAdm=="NA"]<-NA
+
+#recode of Complications This Pregnancy
+CompsThisPreg<-
+  paste(aim3_chki.tx.conf$ATF_CompsThisPregType,
+        aim3_chki.tx.conf$ComplicationsThisPregnancySP)
+CompsThisPreg<-str_trim(CompsThisPreg,side=c("both"))
+table(CompsThisPreg) #get counts beforehand
+CompsThisPreg<-gsub(" NA$","",CompsThisPreg)
+CompsThisPreg<-gsub("^_Gestro.*","GPH",CompsThisPreg)
+CompsThisPreg<-gsub("^_Intra.*","DEATH",CompsThisPreg)
+CompsThisPreg<-gsub("^_Multip.*","MULTIP",CompsThisPreg)
+CompsThisPreg<-gsub("^_Malp.*","MALPOSITION",CompsThisPreg)
+CompsThisPreg<-gsub("^_Unknown$","UNK",CompsThisPreg)
+CompsThisPreg<-gsub("^_Other$","OTHER",CompsThisPreg)
+CompsThisPreg<-gsub("^_PlacentaPrevia$","PREVIA",CompsThisPreg)
+CompsThisPreg<-gsub("^_ThreatenedAbort$","T_ABORT",CompsThisPreg)
+CompsThisPreg<-gsub(".*_IntrauterineDeath$","T_ABORT",CompsThisPreg)
+CompsThisPreg<-gsub(".*RENAL.*","RENAL",CompsThisPreg)
+CompsThisPreg<-gsub(".*ANE.*","ANEM",CompsThisPreg)
+CompsThisPreg<-gsub(".*ANA.*","ANEM",CompsThisPreg)
+CompsThisPreg<-gsub(".*ANM.*","ANEM",CompsThisPreg)
+CompsThisPreg<-gsub(".*APH.*","HEMOR",CompsThisPreg)
+CompsThisPreg<-gsub(".*ABRUPT.*","PLACENTA",CompsThisPreg)
+CompsThisPreg<-gsub(".*BLEED.*","HEMOR",CompsThisPreg)
+CompsThisPreg<-gsub(".*ECTO.*","ECTOPIC",CompsThisPreg)
+CompsThisPreg<-gsub(".*ETOPIC.*","ECTOPIC",CompsThisPreg)
+CompsThisPreg<-gsub(".*CARDIAC.*","CARDIAC",CompsThisPreg)
+CompsThisPreg<-gsub(".*CHEST.*","CARDIAC",CompsThisPreg)
+CompsThisPreg<-gsub(".*SEP.*","SEPSIS",CompsThisPreg)
+CompsThisPreg<-gsub(".*ICA.*","I_ABORT",CompsThisPreg)
+CompsThisPreg<-gsub(".*CERV.*","CERVIX",CompsThisPreg)
+CompsThisPreg<-gsub(".*DIAL.*","RENAL",CompsThisPreg)
+CompsThisPreg<-gsub(".*PLAC.*","PLACENTA",CompsThisPreg)
+CompsThisPreg<-gsub(".*WARTS.*","OTHER",CompsThisPreg)
+CompsThisPreg<-gsub(".*TB.*","OTHER",CompsThisPreg)
+CompsThisPreg<-gsub(".*REFER.*","OTHER",CompsThisPreg)
+CompsThisPreg<-gsub(".*MENOR.*","HEMOR",CompsThisPreg)
+CompsThisPreg<-gsub(".*HYP.*","HYPERT",CompsThisPreg)
+CompsThisPreg<-gsub(".*EXT.*","ECTOPIC",CompsThisPreg)
+CompsThisPreg<-gsub(".*DEA.*","DEATH",CompsThisPreg)
+CompsThisPreg<-gsub(".*FMNF.*","DEATH",CompsThisPreg)
+CompsThisPreg<-gsub(".*FETA.*","DEATH",CompsThisPreg)
+CompsThisPreg<-gsub(".*INC.*","I_ABORT",CompsThisPreg)
+CompsThisPreg<-gsub(".*NEV.*","I_ABORT",CompsThisPreg)
+CompsThisPreg<-gsub(".*Unknown$","UNK",CompsThisPreg)
+CompsThisPreg<-gsub("^_Other.*","C_ABORT",CompsThisPreg)
+CompsThisPreg<-gsub("^NA .*","C_ABORT",CompsThisPreg)
+summary(freqlist(table(CompsThisPreg,
+                       useNA = "ifany"),
+                 labelTranslations = "Complications This Pregnancy"))
+CompsThisPreg[CompsThisPreg=="NA"]<-NA
+
+#recode 97 Unknown as NA
+aim3_chki.tx.conf$ATF_TransfusePriorToCurr[
+  aim3_chki.tx.conf$ATF_TransfusePriorToCurr=="97 Unknown"]<-NA
+aim3_chki.tx.conf$ATF_OnHematinicRxDuringPreg[
+  aim3_chki.tx.conf$ATF_OnHematinicRxDuringPreg=="97 Unknown"]<-NA
+aim3_chki.tx.conf$ATF_TxHighestLevelDiscuss[
+  aim3_chki.tx.conf$ATF_TxHighestLevelDiscuss=="97 Unknown"]<-NA
+aim3_chki.tx.conf$ATF_HbMethodUsed[
+  aim3_chki.tx.conf$ATF_HbMethodUsed=="97 Unknown"]<-NA
+aim3_chki.tx.conf$ATF_WhereResultsObtainedPriorTx[
+  aim3_chki.tx.conf$ATF_WhereResultsObtainedPriorTx=="97 Unknown"]<-NA
+aim3_chki.tx.conf$ATF_IdAnemicDuringCurrPreg[
+  aim3_chki.tx.conf$ATF_IdAnemicDuringCurrPreg=="97 Unknown"]<-NA
+aim3_chki.tx.conf$ATF_BleedingThisPreg[
+  aim3_chki.tx.conf$ATF_BleedingThisPreg=="97 Unknown"]<-NA
+aim3_chki.tx.conf$ATF_MedicalRationaleForTx[
+  aim3_chki.tx.conf$ATF_MedicalRationaleForTx=="97 Unknown"]<-NA
+aim3_chki.tx.conf$ATF_PMTCTThisPreg[
+  aim3_chki.tx.conf$ATF_PMTCTThisPreg=="97 Unknown"]<-NA
+aim3_chki.tx.conf$ATF_OnARTPriorThisPreg[
+  aim3_chki.tx.conf$ATF_OnARTPriorThisPreg=="97 Unknown"]<-NA
+aim3_chki.tx.conf$ATF_OnARTPriorThisPreg[
+  aim3_chki.tx.conf$ATF_OnARTPriorThisPreg=="Skip"]<-NA
+aim3_chki.tx.conf$ATF_HIVStatusAtBooking[
+  aim3_chki.tx.conf$ATF_HIVStatusAtBooking=="97 Unknown"]<-NA
+aim3_chki.tx.conf$ATF_HIVStatusDelvAdmission[
+  aim3_chki.tx.conf$ATF_HIVStatusDelvAdmission=="97 Unknown"]<-NA
+aim3_chki.tx.conf$ATF_HIVStatusOthTest[
+  aim3_chki.tx.conf$ATF_HIVStatusOthTest=="97 Unknown"]<-NA
+aim3_chki.tx.conf$ATF_HIVStatusOthTest2[
+  aim3_chki.tx.conf$ATF_HIVStatusOthTest2=="97 Unknown"]<-NA
+aim3_chki.tx.conf$ATF_PMTCTThisPreg[
+  is.na(aim3_chki.tx.conf$ATF_PMTCTThisPreg)]<-"02 No"
+
+#Combine HIV Statuses into new column called HIV New
+attach(aim3_chki.tx.conf)
+hiv.mat<-cbind(ATF_HIVStatusAtBooking,
+               ATF_HIVStatusDelvAdmission,
+               ATF_HIVStatusOthTest)
+detach(aim3_chki.tx.conf)
+hiv.mat[hiv.mat=="01 HIV+"]<-1
+hiv.mat[hiv.mat=="02 HIV-"]<--2
+hiv.mat<-as.numeric(hiv.mat)
+dim(hiv.mat)<-c(560,3)
+hivstatus<-rowSums(hiv.mat,na.rm = TRUE)
+hivstatus[hivstatus=="0"]<-NA
+hivstatus[hivstatus=="-2" | 
+            hivstatus=="-4"]<-"02 HIV-"
+hivstatus[hivstatus=="1" | 
+            hivstatus=="2"]<-"01 HIV+"
+
+#Create New Variable Anemia*Bleeding
+anemic.and.bleeding<-NA
+anemic.and.bleeding[
+  aim3_chki.tx.conf$ATF_IdAnemicDuringCurrPreg=="01 Yes" & 
+    aim3_chki.tx.conf$ATF_BleedingThisPreg=="01 Yes"
+  ]<-"Both"
+anemic.and.bleeding[
+  aim3_chki.tx.conf$ATF_BleedingThisPreg=="01 Yes" & 
+    (aim3_chki.tx.conf$ATF_IdAnemicDuringCurrPreg=="02 No" | 
+    aim3_chki.tx.conf$ATF_IdAnemicDuringCurrPreg=="97 Unknown" | 
+    is.na(aim3_chki.tx.conf$ATF_IdAnemicDuringCurrPreg))
+  ]<-"Bleeding_Only"
+anemic.and.bleeding[
+  aim3_chki.tx.conf$ATF_IdAnemicDuringCurrPreg=="01 Yes" & 
+    aim3_chki.tx.conf$ATF_BleedingThisPreg=="02 No"
+  ]<-"Anemia_Only"
+anemic.and.bleeding[
+  (aim3_chki.tx.conf$ATF_BleedingThisPreg=="02 No" | 
+     is.na(aim3_chki.tx.conf$ATF_BleedingThisPreg)) & 
+    (aim3_chki.tx.conf$ATF_IdAnemicDuringCurrPreg=="02 No" |
+    is.na(aim3_chki.tx.conf$ATF_IdAnemicDuringCurrPreg))]<-"Neither"
+anemic.and.bleeding[
+  is.na(aim3_chki.tx.conf$ATF_BleedingThisPreg) & 
+    aim3_chki.tx.conf$ATF_IdAnemicDuringCurrPreg=="01 Yes"]<-"Neither"
+#enable tableone object to r markdown
+kableone <- function(x, ...) {
+  capture.output(x <- print(x))
+  knitr::kable(x, ...)
+}
+#single histogram function
+plot_histogram <- function(df,feature) {
+  plt <- ggplot(df, aes(x=eval(parse(text=feature)))) +
+    geom_histogram(aes(y = ..density..), alpha=0.7, fill="#33AADE", color="black") +
+    geom_density(alpha=0.3, fill="red") +
+    geom_vline(aes(xintercept=mean(eval(parse(text=feature)))), color="black", linetype="dashed", size=1) +
+    labs(x='Delta Hb (g/dL)/unit', y = "Density")
+  print(plt)
+}
+#multiple histogram function
+plot_multi_histogram <- function(df, feature, label_column,xlab) {
+  plt <- ggplot(df, aes(x=eval(parse(text=feature)), 
+                        fill=eval(parse(text=label_column)))) +
+    geom_histogram(alpha=0.7, position="identity", 
+                   aes(y = ..density..), color="black") +
+    geom_density(alpha=0.7) +
+    geom_vline(aes(xintercept=mean(eval(parse(text=feature)))), 
+               color="black", linetype="dashed", size=1) +
+    labs(x=xlab, y = "Density")
+  plt + guides(fill=guide_legend(title=label_column))
+}
+```
+
+##Table 1 - Demographics
+
+```{r table1, warning=FALSE,results="apsis",echo=FALSE}
+#Print out Table 1
+#(aggregated)
+table1.df<-data.frame(Age=aim3_chki.tx.conf$ATF_Age,
+                      Race=aim3_chki.tx.conf$ATF_Race,
+                      Gravidity=aim3_chki.tx.conf$ATF_Gravidity,
+                      Parity=aim3_chki.tx.conf$ATF_Parity,
+                      LengthofStay=aim3_chki.tx.conf$Stay_Length,
+                      AliveatDischarge=aim3_chki.tx.conf$ATF_AliveAtDschg,
+                      GestationAgeWeeks=
+                        aim3_chki.tx.conf$ATF_GestAgeWks,
+                      GestationAgeTrimester=
+                        aim3_chki.tx.conf$gest.wks.tri,
+                      BookingStatusatAdmission=
+                        aim3_chki.tx.conf$ATF_BookingStatusAtAdm,
+                      PrenatalVisits=
+                        aim3_chki.tx.conf$ATF_NumVisitsAntenatalClinic,
+                      HIVStatus=hivstatus,
+                      ARTUsePriortoPregnancy=
+                        aim3_chki.tx.conf$ATF_OnARTPriorThisPreg)
+listvars<-c("Age","Race",
+            "Gravidity","Parity",
+            "LengthofStay",
+            "AliveatDischarge",
+            "GestationAgeWeeks",
+            "GestationAgeTrimester",
+            "BookingStatusatAdmission",
+            "PrenatalVisits",
+            "HIVStatus",
+            "ARTUsePriortoPregnancy")
+catvars<-c("Race",
+           "BookingStatusatAdmission",
+           "GestationAgeTrimester",
+           "AliveatDischarge",
+           "HIVStatus",
+           "ARTUsePriortoPregnancy")
+nonnormalvars<-c("Gravidity","Parity",
+                 "LengthofStay",
+                 "PrenatalVisits")
+table1<-CreateTableOne(vars=listvars,
+                       data = table1.df,
+                       factorVars = catvars,
+                       includeNA = TRUE)
+kableone(table1)
+#(by hospital)
+table1.df<-data.frame(Location=aim3_chki.tx.conf$LOCATION,
+                      Age=aim3_chki.tx.conf$ATF_Age,
+                      Race=aim3_chki.tx.conf$ATF_Race,
+                      Gravidity=aim3_chki.tx.conf$ATF_Gravidity,
+                      Parity=aim3_chki.tx.conf$ATF_Parity,
+                      LengthofStay=aim3_chki.tx.conf$Stay_Length,
+                      AliveatDischarge=aim3_chki.tx.conf$ATF_AliveAtDschg,
+                      GestationAgeWeeks=
+                        aim3_chki.tx.conf$ATF_GestAgeWks,
+                      GestationAgeTrimester=
+                        aim3_chki.tx.conf$gest.wks.tri,
+                      BookingStatusatAdmission=
+                        aim3_chki.tx.conf$ATF_BookingStatusAtAdm,
+                      PrenatalVisits=
+                        aim3_chki.tx.conf$ATF_NumVisitsAntenatalClinic,
+                      HIVStatus=hivstatus,
+                      ARTUsePriortoPregnancy=
+                        aim3_chki.tx.conf$ATF_OnARTPriorThisPreg)
+listvars<-c("Age","Race",
+            "Gravidity","Parity",
+            "LengthofStay",
+            "AliveatDischarge",
+            "GestationAgeWeeks",
+            "GestationAgeTrimester",
+            "BookingStatusatAdmission",
+            "PrenatalVisits",
+            "HIVStatus",
+            "ARTUsePriortoPregnancy")
+catvars<-c("Location","Race",
+           "BookingStatusatAdmission",
+           "GestationAgeTrimester",
+           "AliveatDischarge",
+           "HIVStatus",
+           "ARTUsePriortoPregnancy")
+nonnormalvars<-c("Gravidity","Parity",
+                 "LengthofStay",
+                 "PrenatalVisits")
+table1<-CreateTableOne(vars=listvars,data = table1.df,
+                       factorVars = catvars,includeNA = TRUE,
+                       strata = "Location",test=FALSE)
+kableone(table1)
+```
+
+##Table 2
+
+```{r table2,warning=FALSE,results="apsis",echo=FALSE}
+table2.df<-data.frame(BleedingthisPregnancy=
+                        aim3_chki.tx.conf$ATF_BleedingThisPreg,
+                      HemorrhageCause=
+                        HemorrhageCause,
+                      AnemicCurrentPregnancy=
+                        aim3_chki.tx.conf$ATF_IdAnemicDuringCurrPreg,
+                      BloodTransfusionRationale=
+                        MedicalRationale,
+                      AnemiaEtiology=
+                        aim3_chki.tx.conf$ATF_ChronicAnemiaType)
+listvars<-c("BleedingthisPregnancy",
+            "HemorrhageCause",
+            "AnemicCurrentPregnancy",
+            "BloodTransfusionRationale",
+            "AnemiaEtiology")
+catvars<-c("BleedingthisPregnancy",
+           "HemorrhageCause",
+           "AnemicCurrentPregnancy",
+           "BloodTransfusionRationale",
+           "AnemiaEtiology")
+table2<-CreateTableOne(vars=listvars,data=table2.df,factorVars = catvars,
+                       includeNA = TRUE)
+kableone(table2)
+#stratified by hospital
+table2.df<-data.frame(Location=aim3_chki.tx.conf$LOCATION,
+                      GestationAgeTrimester=
+                        aim3_chki.tx.conf$gest.wks.tri,
+                      BleedingthisPregnancy=
+                        aim3_chki.tx.conf$ATF_BleedingThisPreg,
+                      HemorrhageCause=
+                        HemorrhageCause,
+                      AnemicCurrentPregnancy=
+                        aim3_chki.tx.conf$ATF_IdAnemicDuringCurrPreg,
+                      AnemiaEtiology=
+                        aim3_chki.tx.conf$ATF_ChronicAnemiaType,
+                      BloodTransfusionRationale=
+                        MedicalRationale)
+listvars<-c("BleedingthisPregnancy",
+            "HemorrhageCause",
+            "AnemicCurrentPregnancy",
+            "BloodTransfusionRationale",
+            "AnemiaEtiology")
+catvars<-c("Location","GestationAgeTrimester",
+           "BleedingthisPregnancy",
+           "HemorrhageCause",
+           "AnemicCurrentPregnancy",
+           "BloodTransfusionRationale",
+           "AnemiaEtiology")
+table2<-CreateTableOne(vars=listvars,data=table2.df,factorVars = catvars,
+                       strata="Location",includeNA = TRUE,test=FALSE)
+kableone(table2)
+#stratified by trimester
+table2.df<-data.frame(Location=aim3_chki.tx.conf$LOCATION,
+                      GestationAgeTrimester=
+                        aim3_chki.tx.conf$gest.wks.tri,
+                      BleedingthisPregnancy=
+                        aim3_chki.tx.conf$ATF_BleedingThisPreg,
+                      HemorrhageCause=
+                        HemorrhageCause,
+                      AnemicCurrentPregnancy=
+                        aim3_chki.tx.conf$ATF_IdAnemicDuringCurrPreg,
+                      AnemiaEtiology=
+                        aim3_chki.tx.conf$ATF_ChronicAnemiaType,
+                      BloodTransfusionRationale=
+                        MedicalRationale)
+listvars<-c("BleedingthisPregnancy",
+            "HemorrhageCause",
+            "AnemicCurrentPregnancy",
+            "BloodTransfusionRationale",
+            "AnemiaEtiology")
+catvars<-c("Location","GestationAgeTrimester",
+           "BleedingthisPregnancy",
+           "HemorrhageCause",
+           "AnemicCurrentPregnancy",
+           "BloodTransfusionRationale",
+           "AnemiaEtiology")
+table2<-CreateTableOne(vars=listvars,data=table2.df,factorVars = catvars,
+                       strata="GestationAgeTrimester",includeNA = TRUE,test=FALSE)
+kableone(table2)
+```
+
+##Table 3 - Complications this Pregnancy
+
+```{r table3,echo=FALSE}
+###Table 3 Complications During Current Pregnancy###
+table3.df<-data.frame(Complications_this_Pregnancy=
+                       aim3_chki.tx.conf$ATF_CompsThisPreg,
+                      Type_of_Complications_this_Pregnancy=
+                        CompsThisPreg,
+                      Complications_this_Admission=
+                        aim3_chki.tx.conf$ATF_CompsThisAdm,
+                      Type_of_Complications_this_Admission=
+                        CompsThisAdm)
+listvars<-c("Complications_this_Pregnancy",
+            "Type_of_Complications_this_Pregnancy",
+            "Complications_this_Admission",
+            "Type_of_Complications_this_Admission")
+catvars<-c("Complications_this_Pregnancy",
+           "Type_of_Complications_this_Pregnancy",
+           "Complications_this_Admission",
+           "Type_of_Complications_this_Admission")
+table3<-CreateTableOne(vars=listvars,data = table3.df,
+                       factorVars = catvars,
+                       includeNA = TRUE)
+kableone(table3)
+#stratified by hospital
+table3.df<-data.frame(Location=aim3_chki.tx.conf$LOCATION,
+                      Complications_this_Pregnancy=
+                       aim3_chki.tx.conf$ATF_CompsThisPreg,
+                      Type_of_Complications_this_Pregnancy=
+                        CompsThisPreg,
+                      Complications_this_Admission=
+                        aim3_chki.tx.conf$ATF_CompsThisAdm,
+                      Type_of_Complications_this_Admission=
+                        CompsThisAdm)
+listvars<-c("Complications_this_Pregnancy",
+            "Type_of_Complications_this_Pregnancy",
+            "Complications_this_Admission",
+            "Type_of_Complications_this_Admission")
+catvars<-c("Complications_this_Pregnancy",
+           "Type_of_Complications_this_Pregnancy",
+           "Complications_this_Admission",
+           "Type_of_Complications_this_Admission")
+table3<-CreateTableOne(vars=listvars,data = table3.df,
+                       factorVars = catvars,
+                       strata="Location",,
+                       includeNA = TRUE)
+kableone(table3)
+#stratified by gestation age trimester
+table3.df<-data.frame(Location=aim3_chki.tx.conf$LOCATION,
+                      GestationAgeTrimester=
+                        aim3_chki.tx.conf$gest.wks.tri,
+                      Complications_this_Pregnancy=
+                       aim3_chki.tx.conf$ATF_CompsThisPreg,
+                      Type_of_Complications_this_Pregnancy=
+                        CompsThisPreg,
+                      Complications_this_Admission=
+                        aim3_chki.tx.conf$ATF_CompsThisAdm,
+                      Type_of_Complications_this_Admission=
+                        CompsThisAdm)
+listvars<-c("Complications_this_Pregnancy",
+            "Type_of_Complications_this_Pregnancy",
+            "Complications_this_Admission",
+            "Type_of_Complications_this_Admission")
+catvars<-c("Complications_this_Pregnancy",
+           "Type_of_Complications_this_Pregnancy",
+           "Complications_this_Admission",
+           "Type_of_Complications_this_Admission")
+table3<-CreateTableOne(vars=listvars,data = table3.df,
+                       factorVars = catvars,
+                       strata="GestationAgeTrimester",,
+                       includeNA = TRUE)
+kableone(table3)
+```
+
+##Table 4 - Miscellaneous
+
+```{r table4,warning=FALSE,results="apsis",echo=FALSE}
+table4.df<-data.frame(PreviousTransfusion=
+                        aim3_chki.tx.conf$ATF_TransfusePriorToCurr,
+                      PreviousTransfusionWhen=
+                        aim3_chki.tx.conf$ATF_TransfusedPriorWhen,
+                      OnHematinicTherapyDuringPregnancy=
+                        aim3_chki.tx.conf$ATF_OnHematinicRxDuringPreg,
+                      HighestLevelDiscussedTransfusion=
+                        aim3_chki.tx.conf$ATF_TxHighestLevelDiscuss,
+                      PatientTransfusedWhere=
+                        aim3_chki.tx.conf$ATF_PtTransfusedAt,
+                      WherePatientWhenTransfusionStarted=
+                        aim3_chki.tx.conf$ATF_WherePtTxStart,
+                      PreTransfusionHemoglobin=
+                        aim3_chki.tx.conf$ATF_LastHemoglobinPriorTx,
+                      HemoglobinMethodUsed=
+                        aim3_chki.tx.conf$ATF_HbMethodUsed,
+                      WereResultsObtainedBeforeTransfusion=
+                        aim3_chki.tx.conf$ATF_WhereResultsObtainedPriorTx)
+listvars<-c("PreviousTransfusion",
+            "PreviousTransfusionWhen",
+            "OnHematinicTherapyDuringPregnancy",
+            "HighestLevelDiscussedTransfusion",
+            "PatientTransfusedWhere",
+            "WherePatientWhenTransfusionStarted",
+            "PreTransfusionHemoglobin",
+            "HemoglobinMethodUsed",
+            "WereResultsObtainedBeforeTransfusion")
+catvars<-c("PreviousTransfusion",
+           "PreviousTransfusionWhen",
+           "OnHematinicTherapyDuringPregnancy",
+           "HighestLevelDiscussedTransfusion",
+           "PatientTransfusedWhere",
+           "WherePatientWhenTransfusionStarted",
+           "HemoglobinMethodUsed",
+           "WereResultsObtainedBeforeTransfusion")
+table4<-CreateTableOne(vars=listvars,data = table4.df,
+                       factorVars = catvars,
+                       includeNA = TRUE)
+kableone(table4)
+#stratified by hospital
+table4.df<-data.frame(Location=aim3_chki.tx.conf$LOCATION,
+                      GestationAgeTrimester=
+                        aim3_chki.tx.conf$gest.wks.tri,
+                      PreviousTransfusion=
+                        aim3_chki.tx.conf$ATF_TransfusePriorToCurr,
+                      PreviousTransfusionWhen=
+                        aim3_chki.tx.conf$ATF_TransfusedPriorWhen,
+                      OnHematinicTherapyDuringPregnancy=
+                        aim3_chki.tx.conf$ATF_OnHematinicRxDuringPreg,
+                      HighestLevelDiscussedTransfusion=
+                        aim3_chki.tx.conf$ATF_TxHighestLevelDiscuss,
+                      PatientTransfusedWhere=
+                        aim3_chki.tx.conf$ATF_PtTransfusedAt,
+                      WherePatientWhenTransfusionStarted=
+                        aim3_chki.tx.conf$ATF_WherePtTxStart,
+                      PreTransfusionHemoglobin=
+                        aim3_chki.tx.conf$ATF_LastHemoglobinPriorTx,
+                      HemoglobinMethodUsed=
+                        aim3_chki.tx.conf$ATF_HbMethodUsed,
+                      WereResultsObtainedBeforeTransfusion=
+                        aim3_chki.tx.conf$ATF_WhereResultsObtainedPriorTx)
+listvars<-c("PreviousTransfusion",
+            "PreviousTransfusionWhen",
+            "OnHematinicTherapyDuringPregnancy",
+            "HighestLevelDiscussedTransfusion",
+            "PatientTransfusedWhere",
+            "WherePatientWhenTransfusionStarted",
+            "PreTransfusionHemoglobin",
+            "HemoglobinMethodUsed",
+            "WereResultsObtainedBeforeTransfusion")
+catvars<-c("Location",
+           "PreviousTransfusion",
+           "PreviousTransfusionWhen",
+           "OnHematinicTherapyDuringPregnancy",
+           "HighestLevelDiscussedTransfusion",
+           "PatientTransfusedWhere",
+           "WherePatientWhenTransfusionStarted",
+           "HemoglobinMethodUsed",
+           "WereResultsObtainedBeforeTransfusion")
+table4<-CreateTableOne(vars=listvars,data = table4.df,
+                       factorVars = catvars,
+                       strata="Location",
+                       includeNA = TRUE,test=FALSE)
+kableone(table4)
+#stratified by gestation age trimester
+table4.df<-data.frame(Location=aim3_chki.tx.conf$LOCATION,
+                      GestationAgeTrimester=
+                        aim3_chki.tx.conf$gest.wks.tri,
+                      PreviousTransfusion=
+                        aim3_chki.tx.conf$ATF_TransfusePriorToCurr,
+                      PreviousTransfusionWhen=
+                        aim3_chki.tx.conf$ATF_TransfusedPriorWhen,
+                      OnHematinicTherapyDuringPregnancy=
+                        aim3_chki.tx.conf$ATF_OnHematinicRxDuringPreg,
+                      HighestLevelDiscussedTransfusion=
+                        aim3_chki.tx.conf$ATF_TxHighestLevelDiscuss,
+                      PatientTransfusedWhere=
+                        aim3_chki.tx.conf$ATF_PtTransfusedAt,
+                      WherePatientWhenTransfusionStarted=
+                        aim3_chki.tx.conf$ATF_WherePtTxStart,
+                      PreTransfusionHemoglobin=
+                        aim3_chki.tx.conf$ATF_LastHemoglobinPriorTx,
+                      HemoglobinMethodUsed=
+                        aim3_chki.tx.conf$ATF_HbMethodUsed,
+                      WereResultsObtainedBeforeTransfusion=
+                        aim3_chki.tx.conf$ATF_WhereResultsObtainedPriorTx)
+listvars<-c("PreviousTransfusion",
+            "PreviousTransfusionWhen",
+            "OnHematinicTherapyDuringPregnancy",
+            "HighestLevelDiscussedTransfusion",
+            "PatientTransfusedWhere",
+            "WherePatientWhenTransfusionStarted",
+            "PreTransfusionHemoglobin",
+            "HemoglobinMethodUsed",
+            "WereResultsObtainedBeforeTransfusion")
+catvars<-c("GestationAgeTrimester",
+           "PreviousTransfusion",
+           "PreviousTransfusionWhen",
+           "OnHematinicTherapyDuringPregnancy",
+           "HighestLevelDiscussedTransfusion",
+           "PatientTransfusedWhere",
+           "WherePatientWhenTransfusionStarted",
+           "HemoglobinMethodUsed",
+           "WereResultsObtainedBeforeTransfusion")
+table4<-CreateTableOne(vars=listvars,data = table4.df,
+                       factorVars = catvars,
+                       strata="GestationAgeTrimester",
+                       includeNA = TRUE,test=FALSE)
+kableone(table4)
+```
+
+##Figure 1. Bar graphs of blood products administered
+
+```{r figure 1,warning=FALSE,message=FALSE,echo=FALSE}
+#red blood cells
+bloodproducts<-subset(aim3_chki.tx.conf,select=c(1,2,113:115))
+bloodproducts$redTotal<-as.character(bloodproducts$redTotal)
+bloodproducts$redTotal[bloodproducts$redTotal=="5" | 
+                         bloodproducts$redTotal=="6" | 
+                         bloodproducts$redTotal=="7"]<-"5"
+ggplot(bloodproducts,aes(x=redTotal,y=(..count..)/sum(..count..))) +
+  geom_bar(fill="black") +
+  labs(x="Units",y="Percent",
+       title="Patients with X Units of Red Blood Cells") +
+  scale_x_discrete(labels=c("0","1","2","3","4","5+")) +
+  geom_text(stat='count',aes(label=..count..,vjust=-.2)) +
+  theme(plot.title = element_text(hjust = 0.5)) + 
+  scale_y_continuous(labels=percent)
+###Fig 2.  Hemoglobin increments###
+#make the data set for the figure 2
+hgb.increments<-data.frame(Location=aim3_chki.tx.conf$LOCATION,
+                           Pretransfusion_Hgb=
+                             aim3_chki.tx.conf$ATF_LastHemoglobinPriorTx,
+                           Posttransfusion_Hgb=
+                             aim3_chki.tx.conf$ATF_HbAfterTx,
+                           Delta_Hgb=
+                             aim3_chki.tx.conf$ATF_HbAfterTx - 
+                             aim3_chki.tx.conf$ATF_LastHemoglobinPriorTx,
+                           RBC_unit=aim3_chki.tx.conf$redTotal)
+hgb.increments$DeltaHgb_div_RBCUnit<-
+  hgb.increments$Delta_Hgb/hgb.increments$RBC_unit
+#create a data frame without the NA or Inf observations 
+#from the last column
+hgb.inc.able<-subset(hgb.increments,!(is.na(DeltaHgb_div_RBCUnit)) & 
+                       !(is.infinite(DeltaHgb_div_RBCUnit)))
+#show distribution plot overall and by hospital
+plot_histogram(hgb.inc.able,'DeltaHgb_div_RBCUnit')
+plot_multi_histogram(hgb.inc.able,'DeltaHgb_div_RBCUnit','Location','Delta Hb (g/dL)/unit')
+#get the means of everything
+#sapply(hgb.inc.able,mean)
+#aggregate(hgb.inc.able[,2:6],list(hgb.inc.able$Location),mean)
+#create a data frame so we can plot this in ggplot
+groupall.df<-data.frame(Location=c(
+  "Chris Hani","Chris Hani","Chris Hani","Chris Hani",
+  "King Edward VIII","King Edward VIII",
+  "King Edward VIII","King Edward VIII",
+  "Overall","Overall","Overall","Overall"),
+  Hgb_Tx=c(
+    "Pre","Post","Delta","Delta/Unit",
+    "Pre","Post","Delta","Delta/Unit",
+    "Pre","Post","Delta","Delta/Unit"),
+  means=c(6.65,9.26,2.6,1.09,
+          6.93,8.79,1.86,.83,
+          6.78,9.03,2.24,.96))
+#create plot
+groupall.df$Hgb_Tx<-factor(groupall.df$Hgb_Tx,
+                           levels=c("Pre","Post","Delta","Delta/Unit"),
+                           labels=c("Pre Hb (g/dL)","Post Hb (g/dL)",
+                                    "Delta Hb (g/dL)",
+                                    "Delta Hb (g/dL)/unit"))
+ggplot(groupall.df,aes(x=Location,y=means,group=Hgb_Tx)) + 
+  geom_point(aes(shape=Hgb_Tx,color=Hgb_Tx)) + 
+  labs(x="Hospital",y="Mean Hemoglobin Level",
+       title="Hemoglobin Increments") + 
+  scale_y_continuous(breaks=seq(from=1,to=10)) +
+  theme(plot.title = element_text(hjust = 0.5))
+```

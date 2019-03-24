@@ -1,0 +1,576 @@
+---
+title: "Crosstabs & Frequencies"
+author: "Adam Jauregui"
+date: "February 15, 2019"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+library(readr)
+library(ggplot2)
+library(arsenal)
+library(tableone)
+library(lubridate)
+library(StatMeasures)
+library(dplyr)
+library(tidyr)
+library(stringr)
+library(magrittr)
+library(officer)
+library(flextable)
+library(scales)
+aim3.dat.clean <- read_csv("C:/Users/Adam/Documents/BSRI/TIP Stuff/aim3_Dat_clean_correct (version 1).csv", 
+                         col_types = cols(ATF_AdmDate = col_date(format = "%d/%m/%Y"), 
+                                          ATF_BookingDate = col_date(format = "%m/%d/%Y"), 
+                                          ATF_ComponentsTXDate1 = col_date(format = "%d/%m/%Y"), 
+                                          ATF_ComponentsTXDate2 = col_date(format = "%d/%m/%Y"), 
+                                          ATF_ComponentsTXDate3 = col_date(format = "%d/%m/%Y"), 
+                                          ATF_ComponentsTXDate4 = col_date(format = "%d/%m/%Y"), 
+                                          ATF_ComponentsTXDate5 = col_date(format = "%d/%m/%Y"), 
+                                          ATF_ComponentsTXDate6 = col_date(format = "%d/%m/%Y"), 
+                                          ATF_ComponentsTXDate7 = col_date(format = "%d/%m/%Y"), 
+                                          ATF_DschgDate = col_date(format = "%d/%m/%Y"), 
+                                          ATF_EstDateDelivery = col_date(format = "%m/%d/%Y"), 
+                                          ATF_HIVStatusBookingDate = col_date(format = "%m/%d/%Y"), 
+                                          ATF_HIVStatusDelvAdmitDate = col_date(format = "%m/%d/%Y"), 
+                                          ATF_HIVStatusOthTestDate = col_date(format = "%m/%d/%Y"), 
+                                          ATF_PMTCTStartDate = col_date(format = "%m/%d/%Y"), 
+                                          ATF_TodayDate = col_date(format = "%m/%d/%Y"), 
+                                          ChartAbstrationDate = col_date(format = "%m/%d/%Y"), 
+                                          ConsentDate = col_date(format = "%m/%d/%Y"), 
+                                          CreatedDate = col_date(format = "%m/%d/%Y")))
+View(aim3.dat.clean)
+
+#subset out Groote/Schurr hospitals
+aim3_chris.king<-subset(aim3.dat.clean,
+                              LOCATION=="Chris Hani" | 
+                                LOCATION=="King Edward")
+
+#add gestation weeks
+gest.wks.tri<-cut(aim3_chris.king$ATF_GestAgeWks,
+              breaks=c(-Inf,13,25,Inf),
+              label=c("<14","14-25",">25"),
+              right=FALSE)
+aim3_chris.king$gest.wks.tri<-gest.wks.tri
+aim3_chris.king<-aim3_chris.king[c(1:16,116,17:115)]
+aim3_chris.king<-aim3_chris.king[-c(112)]
+
+#rename column
+colnames(aim3_chris.king)[
+  colnames(aim3_chris.king)=="ATF_Transfused.x"
+]<-"ATF_Transfused"
+
+#recalculate stay length column
+aim3_chris.king$Stay_Length<-as.numeric(
+  aim3_chris.king$ATF_DschgDate)-as.numeric(
+    aim3_chris.king$ATF_AdmDate)
+
+#remove the observations that don't have recorded tx's
+aim3_chki.tx.conf<-subset(x=aim3_chris.king,
+                          subset=!(rowSums(aim3_chris.king[c(113:115)])==0))
+
+#recode Q6.5 "Blood Tx Rationale"
+MedicalRationale<-
+  paste(aim3_chki.tx.conf$ATF_MedicalRationaleForTx,
+        aim3_chki.tx.conf$MedicalRationaleOtherSpecify)
+MedicalRationale<-str_trim(MedicalRationale,side=c("both"))
+MedicalRationale<-gsub(" NA$","",MedicalRationale)
+table(MedicalRationale) #get counts beforehand
+MedicalRationale<-gsub("^_Anaesthetic.*","ANESTH",
+                       MedicalRationale)
+MedicalRationale<-gsub(".*Anaesthetic.*","ANESTH",
+                       MedicalRationale)
+MedicalRationale<-gsub(".*DAYS$","BOTH",
+                       MedicalRationale)
+MedicalRationale<-gsub(".*Other ICA$","HEMOR",
+                       MedicalRationale)
+MedicalRationale<-gsub("^_Chronic.*","ANEM",
+                       MedicalRationale)
+MedicalRationale<-gsub(".*Su.*","SURG",ignore.case = TRUE,
+                       MedicalRationale)
+MedicalRationale<-gsub("^_Other AN.*","ANEM",
+                       MedicalRationale)
+MedicalRationale<-gsub(".*Other AN.*","BOTH",
+                       MedicalRationale)
+MedicalRationale<-gsub(".*PALE$","HEMOR",
+                       MedicalRationale)
+MedicalRationale<-gsub(".*AND.*","BOTH",
+                       MedicalRationale)
+MedicalRationale<-gsub(".*ACUTE.*","ANEM",
+                       MedicalRationale)
+MedicalRationale<-gsub(".*SALPINGECTOMY$","SURG",
+                       MedicalRationale)
+MedicalRationale<-gsub(".*ECTOPIC.*","HEMOR",
+                       MedicalRationale)
+MedicalRationale<-gsub(".*HYPOCHYLAEMIA$",
+                       "HEMOR",
+                       MedicalRationale)
+MedicalRationale<-gsub(".*MISCARRIAGE$",
+                       "HEMOR",
+                       MedicalRationale)
+MedicalRationale<-gsub(".*IUD$","HEMOR",
+                       MedicalRationale)
+MedicalRationale<-gsub(".*PRODUCTS$","HEMOR",
+                       MedicalRationale)
+MedicalRationale<-gsub(".*ABORT$","HEMOR",
+                       MedicalRationale)
+MedicalRationale<-gsub(".*PRAGENIA$","HEMOR",
+                       MedicalRationale)
+MedicalRationale<-gsub(".*PLACENTA$","HEMOR",
+                       MedicalRationale)
+MedicalRationale<-gsub(".*MALARIA$","OTHER",
+                       MedicalRationale)
+MedicalRationale<-gsub(".*SEP.*","OTHER",
+                       MedicalRationale)
+MedicalRationale<-gsub(".*THROMOCYTOPAGENIA",
+                       "OTHER",MedicalRationale)
+MedicalRationale<-gsub(".*CURRETAGE","SURG",
+                       MedicalRationale)
+MedicalRationale<-gsub(".*UTERUS$","SURG",
+                       MedicalRationale)
+MedicalRationale<-gsub(".*TOP.*","SURG",
+                       MedicalRationale)
+MedicalRationale<-gsub("^_OBHemorrhage$","HEMOR",
+                       MedicalRationale)
+MedicalRationale<-gsub("_OBHemorrhage.*","BOTH",
+                       MedicalRationale)
+MedicalRationale<-gsub("_Other$","OTHER",
+                       MedicalRationale)
+MedicalRationale<-gsub(".*Unknown$","OTHER",
+                       MedicalRationale)
+MedicalRationale<-ifelse(
+  MedicalRationale=="HEMOR","HEMOR",
+  ifelse(MedicalRationale=="BOTH","BOTH",
+         ifelse(MedicalRationale=="SURG","SURG",
+                ifelse(MedicalRationale=="ANESTH","ANESTH",
+                       ifelse(MedicalRationale=="OTHER","OTHER",
+                              ifelse(MedicalRationale=="NA","NA","ANEM"
+                                     ))))))
+summary(freqlist(table(MedicalRationale,
+                       useNA = "ifany"),
+                 labelTranslations = "Medical Rationale"))
+MedicalRationale[MedicalRationale=="NA"]<-NA
+
+#recode Q5.2 Hemorrhage Cause
+HemorrhageCause<-
+  paste(aim3_chki.tx.conf$ATF_HemorrhageCause,
+        aim3_chki.tx.conf$HemorrhageCauseOtherSpecify)
+HemorrhageCause<-str_trim(HemorrhageCause,side=c("both"))
+HemorrhageCause<-gsub(" NA$","",HemorrhageCause)
+table(HemorrhageCause) #get counts beforehand
+HemorrhageCause<-gsub("_Unknown$","UNK",HemorrhageCause)
+HemorrhageCause<-gsub("^_Ante.*","HEMOR",HemorrhageCause)
+HemorrhageCause<-gsub("^_Bleed.*","SURG",HemorrhageCause)
+HemorrhageCause<-gsub("^_Blled.*","SURG",HemorrhageCause)
+HemorrhageCause<-gsub("^_Complete.*","C_ABORT",HemorrhageCause)
+HemorrhageCause<-gsub("^_Eltopic.*","ECTOPIC",HemorrhageCause)
+HemorrhageCause<-gsub("^_PlacentalAbr.*","ABRUPTION",HemorrhageCause)
+HemorrhageCause<-gsub("^_PlacentaPre.*","PREVIA",HemorrhageCause)
+HemorrhageCause<-gsub("^.*IUD$","DEATH",HemorrhageCause)
+HemorrhageCause<-gsub("^_Incomplete.*","I_ABORT",HemorrhageCause)
+HemorrhageCause<-gsub(".*INEVITABLE.*","I_ABORT",HemorrhageCause)
+HemorrhageCause<-gsub(".*PALE.*","I_ABORT",HemorrhageCause)
+HemorrhageCause<-gsub(".*ABORTION$","I_ABORT",HemorrhageCause)
+HemorrhageCause<-gsub("^_Threat.*","T_ABORT",HemorrhageCause)
+HemorrhageCause<-gsub(".*ANEA.*","ANEM",HemorrhageCause)
+HemorrhageCause<-gsub("_Other TOP","C_ABORT",HemorrhageCause)
+HemorrhageCause<-gsub(".*CERV.*","CERVIX",HemorrhageCause)
+HemorrhageCause<-gsub(".*APH.*","HEMOR",HemorrhageCause)
+HemorrhageCause<-gsub("^_Other$","UNK",HemorrhageCause)
+HemorrhageCause<-gsub(".*Other.*","DEATH",HemorrhageCause)
+summary(freqlist(table(HemorrhageCause,
+                       useNA = "ifany"),
+                 labelTranslations = "Hemorrhage Cause"))
+HemorrhageCause[HemorrhageCause=="NA"]<-NA
+
+#recode of Complications this Admission
+CompsThisAdm<-
+  paste(aim3_chki.tx.conf$ATF_CompsThisAdmType,
+        aim3_chki.tx.conf$ComplicationsThisAdmissionSP)
+CompsThisAdm<-str_trim(CompsThisAdm,side=c("both"))
+table(CompsThisAdm) #get counts beforehand
+CompsThisAdm<-gsub(" NA$","",CompsThisAdm)
+CompsThisAdm<-gsub(".*Renal.*","RENAL",ignore.case = TRUE,CompsThisAdm)
+CompsThisAdm<-gsub(".*Sep.*","SEPSIS",ignore.case=TRUE,CompsThisAdm)
+CompsThisAdm<-gsub(".*Shock.*","SHOCK",ignore.case=TRUE,CompsThisAdm)
+CompsThisAdm<-gsub("^_SymptAnaemia$","ANEM",CompsThisAdm)
+CompsThisAdm<-gsub(".*Resp.*","RESPIRATORY",CompsThisAdm)
+CompsThisAdm<-gsub(".*Hep.*","HEPATIC",CompsThisAdm)
+CompsThisAdm<-gsub(".*HYPO.*","RENAL",CompsThisAdm)
+CompsThisAdm<-gsub(".*DIARR.*","GASTRO",CompsThisAdm)
+CompsThisAdm<-gsub(".*ATRIAC.*","CARDIAC",CompsThisAdm)
+CompsThisAdm<-gsub("^_Other$","OTHER",CompsThisAdm)
+CompsThisAdm<-gsub(".*MALARIA.*","OTHER",CompsThisAdm)
+CompsThisAdm<-gsub(".*LOW.*","ANEM",CompsThisAdm)
+CompsThisAdm<-ifelse(
+  CompsThisAdm=="ANEM","ANEM",
+  ifelse(CompsThisAdm=="CARDIAC","CARDIAC",
+         ifelse(CompsThisAdm=="GASTRO","GASTRO",
+                ifelse(CompsThisAdm=="HEPATIC","HEPATIC",
+                       ifelse(CompsThisAdm=="RESPIRATORY","RESPIRATORY",
+                              ifelse(CompsThisAdm=="OTHER","OTHER",
+                                     ifelse(CompsThisAdm=="RENAL","RENAL",
+                                            ifelse(CompsThisAdm=="SEPSIS","SEPSIS",
+                                                   ifelse(CompsThisAdm=="SHOCK","SHOCK",
+                                                          ifelse(CompsThisAdm=="NA","NA","OBGYN"
+                                                                 )))))))))
+)
+summary(freqlist(table(CompsThisAdm,
+                       useNA = "ifany"),
+                 labelTranslations = "Complications this Admission"))
+CompsThisAdm[CompsThisAdm=="NA"]<-NA
+
+#recode of Complications This Pregnancy
+CompsThisPreg<-
+  paste(aim3_chki.tx.conf$ATF_CompsThisPregType,
+        aim3_chki.tx.conf$ComplicationsThisPregnancySP)
+CompsThisPreg<-str_trim(CompsThisPreg,side=c("both"))
+table(CompsThisPreg) #get counts beforehand
+CompsThisPreg<-gsub(" NA$","",CompsThisPreg)
+CompsThisPreg<-gsub("^_Gestro.*","GPH",CompsThisPreg)
+CompsThisPreg<-gsub("^_Intra.*","DEATH",CompsThisPreg)
+CompsThisPreg<-gsub("^_Multip.*","MULTIP",CompsThisPreg)
+CompsThisPreg<-gsub("^_Malp.*","MALPOSITION",CompsThisPreg)
+CompsThisPreg<-gsub("^_Unknown$","UNK",CompsThisPreg)
+CompsThisPreg<-gsub("^_Other$","OTHER",CompsThisPreg)
+CompsThisPreg<-gsub("^_PlacentaPrevia$","PREVIA",CompsThisPreg)
+CompsThisPreg<-gsub("^_ThreatenedAbort$","T_ABORT",CompsThisPreg)
+CompsThisPreg<-gsub(".*_IntrauterineDeath$","T_ABORT",CompsThisPreg)
+CompsThisPreg<-gsub(".*RENAL.*","RENAL",CompsThisPreg)
+CompsThisPreg<-gsub(".*ANE.*","ANEM",CompsThisPreg)
+CompsThisPreg<-gsub(".*ANA.*","ANEM",CompsThisPreg)
+CompsThisPreg<-gsub(".*ANM.*","ANEM",CompsThisPreg)
+CompsThisPreg<-gsub(".*APH.*","HEMOR",CompsThisPreg)
+CompsThisPreg<-gsub(".*ABRUPT.*","PLACENTA",CompsThisPreg)
+CompsThisPreg<-gsub(".*BLEED.*","HEMOR",CompsThisPreg)
+CompsThisPreg<-gsub(".*ECTO.*","ECTOPIC",CompsThisPreg)
+CompsThisPreg<-gsub(".*ETOPIC.*","ECTOPIC",CompsThisPreg)
+CompsThisPreg<-gsub(".*CARDIAC.*","CARDIAC",CompsThisPreg)
+CompsThisPreg<-gsub(".*CHEST.*","CARDIAC",CompsThisPreg)
+CompsThisPreg<-gsub(".*SEP.*","SEPSIS",CompsThisPreg)
+CompsThisPreg<-gsub(".*ICA.*","I_ABORT",CompsThisPreg)
+CompsThisPreg<-gsub(".*CERV.*","CERVIX",CompsThisPreg)
+CompsThisPreg<-gsub(".*DIAL.*","RENAL",CompsThisPreg)
+CompsThisPreg<-gsub(".*PLAC.*","PLACENTA",CompsThisPreg)
+CompsThisPreg<-gsub(".*WARTS.*","OTHER",CompsThisPreg)
+CompsThisPreg<-gsub(".*TB.*","OTHER",CompsThisPreg)
+CompsThisPreg<-gsub(".*REFER.*","OTHER",CompsThisPreg)
+CompsThisPreg<-gsub(".*MENOR.*","HEMOR",CompsThisPreg)
+CompsThisPreg<-gsub(".*HYP.*","HYPERT",CompsThisPreg)
+CompsThisPreg<-gsub(".*EXT.*","ECTOPIC",CompsThisPreg)
+CompsThisPreg<-gsub(".*DEA.*","DEATH",CompsThisPreg)
+CompsThisPreg<-gsub(".*FMNF.*","DEATH",CompsThisPreg)
+CompsThisPreg<-gsub(".*FETA.*","DEATH",CompsThisPreg)
+CompsThisPreg<-gsub(".*INC.*","I_ABORT",CompsThisPreg)
+CompsThisPreg<-gsub(".*NEV.*","I_ABORT",CompsThisPreg)
+CompsThisPreg<-gsub(".*Unknown$","UNK",CompsThisPreg)
+CompsThisPreg<-gsub("^_Other.*","C_ABORT",CompsThisPreg)
+CompsThisPreg<-gsub("^NA .*","C_ABORT",CompsThisPreg)
+summary(freqlist(table(CompsThisPreg,
+                       useNA = "ifany"),
+                 labelTranslations = "Complications This Pregnancy"))
+CompsThisPreg[CompsThisPreg=="NA"]<-NA
+
+#recode 97 Unknown as NA
+aim3_chki.tx.conf$ATF_TransfusePriorToCurr[
+  aim3_chki.tx.conf$ATF_TransfusePriorToCurr=="97 Unknown"]<-NA
+aim3_chki.tx.conf$ATF_OnHematinicRxDuringPreg[
+  aim3_chki.tx.conf$ATF_OnHematinicRxDuringPreg=="97 Unknown"]<-NA
+aim3_chki.tx.conf$ATF_TxHighestLevelDiscuss[
+  aim3_chki.tx.conf$ATF_TxHighestLevelDiscuss=="97 Unknown"]<-NA
+aim3_chki.tx.conf$ATF_HbMethodUsed[
+  aim3_chki.tx.conf$ATF_HbMethodUsed=="97 Unknown"]<-NA
+aim3_chki.tx.conf$ATF_WhereResultsObtainedPriorTx[
+  aim3_chki.tx.conf$ATF_WhereResultsObtainedPriorTx=="97 Unknown"]<-NA
+aim3_chki.tx.conf$ATF_IdAnemicDuringCurrPreg[
+  aim3_chki.tx.conf$ATF_IdAnemicDuringCurrPreg=="97 Unknown"]<-NA
+aim3_chki.tx.conf$ATF_BleedingThisPreg[
+  aim3_chki.tx.conf$ATF_BleedingThisPreg=="97 Unknown"]<-NA
+aim3_chki.tx.conf$ATF_MedicalRationaleForTx[
+  aim3_chki.tx.conf$ATF_MedicalRationaleForTx=="97 Unknown"]<-NA
+aim3_chki.tx.conf$ATF_PMTCTThisPreg[
+  aim3_chki.tx.conf$ATF_PMTCTThisPreg=="97 Unknown"]<-NA
+aim3_chki.tx.conf$ATF_OnARTPriorThisPreg[
+  aim3_chki.tx.conf$ATF_OnARTPriorThisPreg=="97 Unknown"]<-NA
+aim3_chki.tx.conf$ATF_OnARTPriorThisPreg[
+  aim3_chki.tx.conf$ATF_OnARTPriorThisPreg=="Skip"]<-NA
+aim3_chki.tx.conf$ATF_HIVStatusAtBooking[
+  aim3_chki.tx.conf$ATF_HIVStatusAtBooking=="97 Unknown"]<-NA
+aim3_chki.tx.conf$ATF_HIVStatusDelvAdmission[
+  aim3_chki.tx.conf$ATF_HIVStatusDelvAdmission=="97 Unknown"]<-NA
+aim3_chki.tx.conf$ATF_HIVStatusOthTest[
+  aim3_chki.tx.conf$ATF_HIVStatusOthTest=="97 Unknown"]<-NA
+aim3_chki.tx.conf$ATF_HIVStatusOthTest2[
+  aim3_chki.tx.conf$ATF_HIVStatusOthTest2=="97 Unknown"]<-NA
+aim3_chki.tx.conf$ATF_PMTCTThisPreg[
+  is.na(aim3_chki.tx.conf$ATF_PMTCTThisPreg)]<-"02 No"
+
+#Combine HIV Statuses into new column called HIV New
+attach(aim3_chki.tx.conf)
+hiv.mat<-cbind(ATF_HIVStatusAtBooking,
+               ATF_HIVStatusDelvAdmission,
+               ATF_HIVStatusOthTest)
+detach(aim3_chki.tx.conf)
+hiv.mat[hiv.mat=="01 HIV+"]<-1
+hiv.mat[hiv.mat=="02 HIV-"]<--2
+hiv.mat<-as.numeric(hiv.mat)
+dim(hiv.mat)<-c(560,3)
+hivstatus<-rowSums(hiv.mat,na.rm = TRUE)
+hivstatus[hivstatus=="0"]<-NA
+hivstatus[hivstatus=="-2" | 
+            hivstatus=="-4"]<-"02 HIV-"
+hivstatus[hivstatus=="1" | 
+            hivstatus=="2"]<-"01 HIV+"
+```
+
+##Frequencies of Q3.10 Complications During this Pregnancy Causes 
+```{r freq1,results="apsis"}
+summary(freqlist(table(CompsThisPreg,
+                       useNA = "ifany"),
+                 labelTranslations = "Complications This Pregnancy"))
+```
+
+Notes:
+*	There were 58 instances in which Q3.10 "Type of Complications During this Pregnancy" had a value of "other" yet no specified reason for complicaiton was given.
+* There was 1 instance in which Q3.10 had a value of "other" with a reason of "unknown" given. This was categorized as "UNK."
+* There were 12 instances in which Q3.10 had a missing value, yet a specified reason for a type of complication was given anyway. These were "Anemia," "Abortion," "Cervical Incompetency," "Complete Abortion," "Ectopic" (4 times), "Ectopic Pregnancy," "ICA," "Incomplete Abortion" (twice), "PV Bleeding," "Renal Problem," "Severe Anaemia", and "Uterine Bleeding" (twice). The NA value took precedent, so these twelve instances were coded as NA.
+
+##Frequencies of Q3.11 Complications During this Admission Causes
+```{r freq2,results="apsis"}
+summary(freqlist(table(CompsThisAdm,
+                       useNA = "ifany"),
+                 labelTranslations = "Complications this Admission"))
+```
+
+Notes:
+*	There were 6 instances in which Q3.11 "Type of Complications During this Admission" had a value of "other" without a specified reason given. (The other "other" gives a reason of malaria.) 
+*	There were 3 instances in which Q3.11 had a missing value (NA), yet a specified reason for a type of complication was given anyway. These were "Ectopic," "Low HB 7.1," and "Retained Products." The NA value took precedent, so these three instances were coded as NA.
+
+##Frequency of Q4.4 Prior ART Status
+```{r freq3,results="apsis"}
+summary(freqlist(table(aim3_chki.tx.conf$ATF_OnARTPriorThisPreg,
+                       useNA = "ifany"),
+                 labelTranslations = "On ART Prior to Preg.?"))
+```
+
+##Frequency of Q4.5 PMTCT Use
+```{r freq4,results="apsis"}
+summary(freqlist(table(aim3_chki.tx.conf$ATF_PMTCTThisPreg,
+                       useNA = "ifany"),
+                 labelTranslations = "On PMTCT this Preg.?"))
+```
+
+
+##Frequencies of Q5.2 Hemorrhage Causes
+```{r freq5,results="apsis"}
+summary(freqlist(table(HemorrhageCause,
+                       useNA = "ifany"),
+                 labelTranslations = "Hemorrhage Cause"))
+```
+
+Notes:
+* There were 3 instances in which Q5.2 "Hemorrhage Causes" had a value of "other" marked without a specified reason given. This was categorized as "UNK."
+
+##Frequencies of Q6.5 Medical Rationale for Transfusion (Categorized)
+```{r freq6,results="apsis"}
+summary(freqlist(table(MedicalRationale,
+                       useNA = "ifany"),
+                 labelTranslations = "Medical Rationale"))
+```
+
+Notes: 
+*	There were 45 instances in which Q6.5 "Medical Rationale for Transfusion" had a value of "other" yet no specified reason was given. These answers were categorized as "OTHER."
+*	There was 1 instance in which "other" was specified with "unknown." This was categorized as "OTHER."
+*	There were 3 instances in which Q6.5 had a missing value (NA), yet a specified reason for transfusion was given anyway. These were "Anaemia," "Ruptured Ectopic," and "Septic Incomplete." The NA value took precedent, so these three instances were coded as NA.
+
+##QC of Q4.1 HIV Status New
+```{r crosstabs6,results="apsis",warning=FALSE,message=FALSE}
+#Combine HIV Statuses into new column called HIV New
+attach(aim3_chki.tx.conf)
+hiv.mat<-cbind(ATF_HIVStatusAtBooking,
+               ATF_HIVStatusDelvAdmission,
+               ATF_HIVStatusOthTest)
+detach(aim3_chki.tx.conf)
+hiv.mat[hiv.mat=="01 HIV+"]<-1
+hiv.mat[hiv.mat=="02 HIV-"]<--2
+hiv.mat<-as.numeric(hiv.mat)
+dim(hiv.mat)<-c(560,3)
+hivstatus<-rowSums(hiv.mat,na.rm = TRUE)
+hivstatus[hivstatus=="0"]<-NA
+hivstatus[hivstatus=="-2" | 
+            hivstatus=="-4"]<-"02 HIV-"
+hivstatus[hivstatus=="1" | 
+            hivstatus=="2"]<-"01 HIV+"
+attach(aim3_chki.tx.conf)
+summary(freqlist(table(hivstatus,
+                       ATF_HIVStatusAtBooking,
+                       ATF_HIVStatusDelvAdmission,
+                       ATF_HIVStatusOthTest,
+                       useNA = "ifany"),
+                 labelTranslations = c("HIV Status New",
+                                       "@Book",
+                                       "@Adm.",
+                                       "@Oth. Test")))
+detach(aim3_chki.tx.conf)
+```
+
+##Crosstabs: QC of Q5.1/6.2 Anemia*Bleeding 
+```{r crosstabs11,results="apsis",warning=FALSE,message=FALSE}
+#Create New Variable Anemia*Bleeding
+anemic.and.bleeding<-NA
+anemic.and.bleeding[
+  aim3_chki.tx.conf$ATF_IdAnemicDuringCurrPreg=="01 Yes" & 
+    aim3_chki.tx.conf$ATF_BleedingThisPreg=="01 Yes"
+  ]<-"Both"
+anemic.and.bleeding[
+  aim3_chki.tx.conf$ATF_BleedingThisPreg=="01 Yes" & 
+    (aim3_chki.tx.conf$ATF_IdAnemicDuringCurrPreg=="02 No" | 
+    aim3_chki.tx.conf$ATF_IdAnemicDuringCurrPreg=="97 Unknown" | 
+    is.na(aim3_chki.tx.conf$ATF_IdAnemicDuringCurrPreg))
+  ]<-"Bleeding_Only"
+anemic.and.bleeding[
+  aim3_chki.tx.conf$ATF_IdAnemicDuringCurrPreg=="01 Yes" & 
+    aim3_chki.tx.conf$ATF_BleedingThisPreg=="02 No"
+  ]<-"Anemia_Only"
+anemic.and.bleeding[
+  (aim3_chki.tx.conf$ATF_BleedingThisPreg=="02 No" | 
+     is.na(aim3_chki.tx.conf$ATF_BleedingThisPreg)) & 
+    (aim3_chki.tx.conf$ATF_IdAnemicDuringCurrPreg=="02 No" |
+    is.na(aim3_chki.tx.conf$ATF_IdAnemicDuringCurrPreg))]<-"Neither"
+anemic.and.bleeding[
+  is.na(aim3_chki.tx.conf$ATF_BleedingThisPreg) & 
+    aim3_chki.tx.conf$ATF_IdAnemicDuringCurrPreg=="01 Yes"]<-"Neither"
+#QC of Anemia*Bleeding
+summary(freqlist(table(anemic.and.bleeding,
+                       aim3_chki.tx.conf$ATF_BleedingThisPreg,
+                       aim3_chki.tx.conf$ATF_IdAnemicDuringCurrPreg,
+                       useNA = "ifany"),
+                 labelTranslations = c("Anemic*Bleeding",
+                                       "Bleeding this Preg.",
+                                       "Anemic Curr. Preg.")))
+```
+
+##Crosstabs: Q3.4 Gestation Age Weeks Trimester and Q3.6 Booking Status at Admission
+```{r crosstabs1, results="apsis"}
+summary(freqlist(table(aim3_chki.tx.conf$gest.wks.tri,
+                       aim3_chki.tx.conf$ATF_BookingStatusAtAdm,
+                       useNA = "ifany")),
+        labelTranslations = c("Gestation Age Trimester",
+                              "Booking Status at Adm."))
+```
+
+##Crosstabs: Q3.4 Gestation Age Trimester and Q3.10 Obstetric Complications (Collapsed)
+```{r crosstabs2, results="apsis"}
+summary(freqlist(table(aim3_chki.tx.conf$gest.wks.tri,
+                       CompsThisPreg,
+                       useNA = "ifany"),
+                 labelTranslations=c("Gestation Age Trimester",
+                                     "Obstetric Complications")))
+```
+
+##Crosstabs: Q3.4 Gestation Age Trimester and Q5.2 Hemorrhage Causes (Collapsed)
+```{r crosstabs3, results="apsis"}
+summary(freqlist(table(aim3_chki.tx.conf$gest.wks.tri,
+                       HemorrhageCause,
+                       useNA = "ifany"),
+                 labelTranslations=c("Gestation Age Trimester",
+                                     "Obstetric Complications")))
+```
+
+##Crosstab of Q3.4 Gestational Age Trimester and Q5.1/6.2 Anemia*Bleeding 
+```{r crosstabs4,results="apsis",message=FALSE}
+summary(freqlist(table(aim3_chki.tx.conf$gest.wks.tri,
+                       anemic.and.bleeding,
+                       useNA = "ifany"),
+                 labelTranslations=c("Gestation Age Trimester",
+                                     "Anemia*Bleeding")))
+```                                     
+
+##Crosstabs: Q3.4 Gestation Age Trimester and Q6.5 Medical Rationale (Collapsed)
+```{r crosstabs5, results="apsis"}
+summary(freqlist(table(aim3_chki.tx.conf$gest.wks.tri,
+                       MedicalRationale,
+                       useNA = "ifany"),
+                 labelTranslations=c("Gestation Age Trimester",
+                                     "Medical Rationale for Tx.")))
+```
+
+##Crosstabs of Q4.1 HIV Status New and Q4.4 ART Use and Q4.5 PMTCT
+```{r crosstabs7,results="apsis",message=FALSE}
+attach(aim3_chki.tx.conf)
+summary(freqlist(table(hivstatus,
+                       ATF_OnARTPriorThisPreg,
+                       ATF_PMTCTThisPreg,
+                       useNA = "ifany"),
+                 labelTranslations = c("HIV Status New",
+                                       "ART Use Prior Preg.",
+                                       "PMTCT This Preg.")))
+detach(aim3_chki.tx.conf)
+```
+
+##Crosstab of Q4.1 HIV Status New and Q5.1/6.2 Anemia*Bleeding
+```{r crosstabs8,results="apsis"}
+summary(freqlist(table(hivstatus,
+                       anemic.and.bleeding,
+                       useNA = "ifany"),
+                 labelTranslations = c("HIV Status New",
+                                       "Anemic*Bleeding")))
+```
+
+##Crosstab of Q4.1 HIV Status New and Q6.5 Medical Rationale for Tx. (Collapsed)
+```{r crosstabs9,results="apsis"}
+summary(freqlist(table(hivstatus,
+                       MedicalRationale,
+                       useNA = "ifany"),
+                 labelTranslations = c("HIV Status New",
+                                       "Medical Rationale")))
+```
+
+##Crosstabs: HIV Status and Hemorrhage Causes
+```{r crosstabs18,results="apsis"}
+summary(freqlist(table(hivstatus,
+                       HemorrhageCause,
+                       useNA = "ifany"),
+                 labelTranslations = c("HIV Status",
+                                       "Hemorrhage Causes")))
+```
+
+##Crosstabs: HIV Status and Obstetric Complications
+```{r crosstabs19,results="apsis"}
+summary(freqlist(table(hivstatus,
+                       CompsThisPreg,
+                       useNA = "ifany"),
+                 labelTranslations = c("HIV Status",
+                                       "Obstetric Complications")))
+```
+
+##Crosstabs: Q5.1a Bleeding This Preg. and Q6.2 Anemic Curr. Preg.
+```{r crosstabs10,results="apsis"}
+summary(freqlist(table(aim3_chki.tx.conf$ATF_BleedingThisPreg,
+                       aim3_chki.tx.conf$ATF_IdAnemicDuringCurrPreg,
+                       useNA = "ifany"),
+                 labelTranslations = c("Anemic Curr. Preg.",
+                                       "Bleeding This Preg.")))
+```
+
+##Crosstabs: Q5.1/6.2 Anemic*Bleeding and Q6.5 Medical Rationale for Tx. (Collapsed)
+```{r crosstabs12,results="apsis"}
+summary(freqlist(table(anemic.and.bleeding,
+                       MedicalRationale,
+                       useNA = "ifany"),
+                 labelTranslations = c("Anemic*Bleeding",
+                                       "Med. Rationale Tx.")))
+```
+
+##Crosstabs: Q6.2 Anemic Current Pregnancy and Q6.5 Medical Rationale for Tx. (Hemorrhage Y/N)
+```{r crosstabs13,results="apsis"}
+Hemorrhage<-aim3_chki.tx.conf$ATF_MedicalRationaleForTx
+Hemorrhage<-gsub(".*Hemorrhage.*","Hemorrhage",Hemorrhage)
+Hemorrhage<-ifelse(Hemorrhage=="Hemorrhage","Hemorrhage",
+  ifelse(Hemorrhage=="NA","NA","Not Hemorrhage"))
+summary(freqlist(table(aim3_chki.tx.conf$ATF_IdAnemicDuringCurrPreg,
+                       Hemorrhage,
+                       useNA = "ifany"),
+                 labelTranslations = c("Anemic Curr. Preg.",
+                                       "Hemorrhage?")))
+```
